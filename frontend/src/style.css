@@ -1,12 +1,6 @@
-﻿@import "tailwindcss";
-
-@theme {
-  --color-primary: #0f766e;
-  --color-primary-light: #14b8a6;
-  --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --color-warning: #ca8a04;
-}
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
