@@ -1,4 +1,4 @@
-﻿"""Django settings for Money Matters."""
+"""Django settings for Money Matters."""
 
 import os
 from pathlib import Path
@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "apps.transactions",
     "apps.mortgage",
     "apps.dashboard",
+    "apps.checklist",
 ]
 
 MIDDLEWARE = [
