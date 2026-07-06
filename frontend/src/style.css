@@ -3,6 +3,40 @@
 @tailwind utilities;
 
 body {
-  @apply bg-gray-50 text-gray-900 antialiased;
+  @apply bg-navy-700 dark:bg-gray-50 text-gray-200 dark:text-gray-800 antialiased;
   font-family: "Inter", system-ui, sans-serif;
 }
+
+.card {
+  @apply bg-navy-600 dark:bg-white border border-navy-500 dark:border-gray-200 rounded-xl shadow-sm;
+}
+
+.input-field {
+  @apply bg-navy-800 dark:bg-white border border-navy-500 dark:border-gray-300 rounded-lg text-sm
+         text-gray-200 dark:text-gray-800 px-3 py-2
+         placeholder:text-gray-500 dark:placeholder:text-gray-400
+         focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+}
+
+.btn-primary {
+  @apply bg-primary-600 text-white rounded-lg text-sm font-medium px-4 py-2
+         hover:bg-primary-700 transition-colors disabled:opacity-50;
+}
+
+.segmented {
+  @apply flex rounded-lg border border-navy-500 dark:border-gray-200 bg-navy-800 dark:bg-gray-100 p-0.5;
+}
+.segmented button {
+  @apply px-3 py-1.5 text-xs font-medium rounded-md transition-colors capitalize;
+}
+.segmented button.active {
+  @apply bg-primary-600 text-white shadow-sm;
+}
+.segmented button:not(.active) {
+  @apply text-gray-400 dark:text-gray-500 hover:text-gray-200 dark:hover:text-gray-700;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-navy-500 dark:bg-gray-300 rounded-full; }

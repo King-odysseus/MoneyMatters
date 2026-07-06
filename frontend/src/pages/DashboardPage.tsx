@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   LineChart, Line, Bar, XAxis, YAxis, CartesianGrid,
@@ -30,6 +30,8 @@ interface DashboardData {
 
 type Period = "year" | "month" | "week" | "day";
 
+const chartColors = { grid: "#1e293b", tick: "#64748b", tooltip: "#1a1f2e" };
+
 export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>("year");
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
@@ -43,14 +45,14 @@ export default function DashboardPage() {
 
   if (!selectedYear && data?.current_year) setSelectedYear(data.current_year);
   if (isLoading || !data) return (
-    <div className="flex items-center justify-center h-64 text-gray-400">Loading dashboard...</div>
+    <div className="flex items-center justify-center h-64 text-gray-500">Loading dashboard...</div>
   );
 
   const summaryCards = [
-    { label: "Total Income", value: data.total_income_ytd, color: "bg-primary-500", ring: "ring-primary-500" },
-    { label: "Total Expenses", value: data.total_expenses_ytd, color: "bg-red-500", ring: "ring-red-500" },
-    { label: "Net Cashflow", value: data.net_cashflow_ytd, color: "bg-emerald-500", ring: "ring-emerald-500" },
-    { label: "Total Savings", value: data.total_savings_ytd, color: "bg-violet-500", ring: "ring-violet-500" },
+    { label: "Total Income", value: data.total_income_ytd, color: "bg-primary-500" },
+    { label: "Total Expenses", value: data.total_expenses_ytd, color: "bg-red-500" },
+    { label: "Net Cashflow", value: data.net_cashflow_ytd, color: "bg-emerald-500" },
+    { label: "Total Savings", value: data.total_savings_ytd, color: "bg-violet-500" },
   ];
 
   const trendData = data.monthly_trend.map((t) => ({
@@ -62,30 +64,22 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with filters */}
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
+        <h2 className="text-2xl font-bold text-gray-100">Dashboard</h2>
         <div className="flex items-center gap-3">
-          {/* Year selector */}
           <select
             value={selectedYear ?? ""}
             onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="bg-navy-800 border border-navy-500 rounded-lg text-sm text-gray-300 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             {data.available_years.map((y) => (
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
-          {/* Period filter */}
-          <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
+          <div className="segmented">
             {(["year", "month", "week", "day"] as Period[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors capitalize ${
-                  period === p ? "bg-primary-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
+              <button key={p} onClick={() => setPeriod(p)} className={period === p ? "active" : ""}>
                 {p}
               </button>
             ))}
@@ -96,9 +90,11 @@ export default function DashboardPage() {
       {/* Summary KPI row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {summaryCards.map((card) => (
-          <div key={card.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{card.label}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-2">GBP {parseFloat(card.value).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+          <div key={card.label} className="card p-5 hover:border-navy-400 transition-colors">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{card.label}</p>
+            <p className="text-2xl font-bold text-gray-100 mt-2">
+              GBP {parseFloat(card.value).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </p>
             <div className={`mt-3 h-1 rounded-full ${card.color} w-full`} />
           </div>
         ))}
@@ -107,7 +103,7 @@ export default function DashboardPage() {
       {/* Pot Performance Cards */}
       {data.kpi_cards.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Savings Pots</h3>
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Savings Pots</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {data.kpi_cards.map((pot) => {
               const sparkData = pot.monthly_data.map((m) => ({
@@ -115,12 +111,14 @@ export default function DashboardPage() {
                 amount: parseFloat(m.amount),
               }));
               return (
-                <div key={pot.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow">
+                <div key={pot.id} className="card p-4 hover:border-navy-400 transition-colors">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{pot.name}</span>
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{pot.name}</span>
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: pot.color }} />
                   </div>
-                  <p className="text-xl font-bold text-gray-900">GBP {parseFloat(pot.ytd_total).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                  <p className="text-xl font-bold text-gray-100">
+                    GBP {parseFloat(pot.ytd_total).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </p>
                   <div className="mt-3 h-16">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
@@ -141,20 +139,20 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Charts + Analytics Row */}
+      {/* Charts + Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Income vs Expenses Chart */}
-        <div className="lg:col-span-3 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Income vs Expenses</h3>
+        {/* Income vs Expenses */}
+        <div className="lg:col-span-3 card p-5">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Income vs Expenses</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={trendData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="month_label" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }} />
-                <Legend />
-                <Bar dataKey="income" name="Income" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                <XAxis dataKey="month_label" tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: "#1a1f2e", borderRadius: "8px", border: "1px solid #334155", color: "#e2e8f0" }} />
+                <Legend wrapperStyle={{ color: "#94a3b8" }} />
+                <Bar dataKey="income" name="Income" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} />
                 <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
                 <Line type="monotone" dataKey="savings" name="Savings" stroke="#10b981" strokeWidth={2} dot={{ r: 4, fill: "#10b981" }} />
               </ComposedChart>
@@ -162,11 +160,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Analytics Summary */}
+        {/* Analytics side panel */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Pot Distribution */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Pot Distribution</h3>
+          <div className="card p-5">
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Pot Distribution</h3>
             <div className="space-y-3">
               {data.kpi_cards.map((pot) => {
                 const maxVal = Math.max(...data.kpi_cards.map((p) => Math.abs(parseFloat(p.ytd_total))), 1);
@@ -174,10 +171,10 @@ export default function DashboardPage() {
                 return (
                   <div key={pot.id}>
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-600">{pot.name}</span>
-                      <span className="font-medium">GBP {parseFloat(pot.ytd_total).toFixed(0)}</span>
+                      <span className="text-gray-400">{pot.name}</span>
+                      <span className="text-gray-300 font-medium">GBP {parseFloat(pot.ytd_total).toFixed(0)}</span>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-navy-800 rounded-full overflow-hidden">
                       <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: pot.color }} />
                     </div>
                   </div>
@@ -186,46 +183,44 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Recent Transactions */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Recent Activity</h3>
+          <div className="card p-5">
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Recent Activity</h3>
             <div className="space-y-2">
               {data.recent_transactions.slice(0, 6).map((txn) => (
-                <div key={txn.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                <div key={txn.id} className="flex items-center justify-between py-1.5 border-b border-navy-500 last:border-0">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-700 truncate">{txn.type}</p>
-                    <p className="text-xs text-gray-400">{txn.date} {txn.notes && `- ${txn.notes}`}</p>
+                    <p className="text-xs font-medium text-gray-300 truncate">{txn.type}</p>
+                    <p className="text-xs text-gray-500">{txn.date} {txn.notes && `- ${txn.notes}`}</p>
                   </div>
-                  <span className={`text-xs font-semibold ml-2 ${parseFloat(txn.signed_amount) < 0 ? "text-red-500" : "text-emerald-500"}`}>
+                  <span className={`text-xs font-semibold ml-2 ${parseFloat(txn.signed_amount) < 0 ? "text-red-400" : "text-emerald-400"}`}>
                     {parseFloat(txn.signed_amount) < 0 ? "-" : "+"}GBP {Math.abs(parseFloat(txn.amount)).toFixed(2)}
                   </span>
                 </div>
               ))}
               {data.recent_transactions.length === 0 && (
-                <p className="text-xs text-gray-400 py-2">No transactions yet</p>
+                <p className="text-xs text-gray-500 py-2">No transactions yet</p>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Pot Trend Charts */}
+      {/* Pot Trend Chart */}
       {data.kpi_cards.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Pot Performance</h3>
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Pot Performance</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="month_label" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false}
+                <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                <XAxis dataKey="month_label" tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={false} tickLine={false}
                   allowDuplicatedCategory={false} />
-                <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }} />
-                <Legend />
+                <YAxis tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: "#1a1f2e", borderRadius: "8px", border: "1px solid #334155", color: "#e2e8f0" }} />
+                <Legend wrapperStyle={{ color: "#94a3b8" }} />
                 {data.kpi_cards.map((pot) => (
                   <Line key={pot.id} data={pot.monthly_data.map((m) => ({ month_label: m.month_label, amount: parseFloat(m.amount) }))}
-                    type="monotone" dataKey="amount" name={pot.name} stroke={pot.color} strokeWidth={2}
-                    dot={{ r: 3 }} />
+                    type="monotone" dataKey="amount" name={pot.name} stroke={pot.color} strokeWidth={2} dot={{ r: 3 }} />
                 ))}
               </LineChart>
             </ResponsiveContainer>

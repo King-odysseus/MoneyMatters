@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import api from "../lib/api";
 
@@ -8,18 +8,9 @@ export default function SettingsPage() {
   const [newName, setNewName] = useState("");
   const [newYear, setNewYear] = useState(new Date().getFullYear());
 
-  const { data: categories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => api.get("/config/categories/").then((r) => r.data),
-  });
-  const { data: pots } = useQuery({
-    queryKey: ["pots"],
-    queryFn: () => api.get("/config/pots/").then((r) => r.data),
-  });
-  const { data: years } = useQuery({
-    queryKey: ["years"],
-    queryFn: () => api.get("/config/years/").then((r) => r.data),
-  });
+  const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: () => api.get("/config/categories/").then((r) => r.data) });
+  const { data: pots } = useQuery({ queryKey: ["pots"], queryFn: () => api.get("/config/pots/").then((r) => r.data) });
+  const { data: years } = useQuery({ queryKey: ["years"], queryFn: () => api.get("/config/years/").then((r) => r.data) });
 
   const createCategory = useMutation({
     mutationFn: (name: string) => api.post("/config/categories/", { name, display_order: 0 }),
@@ -50,44 +41,39 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">Settings</h2>
+      <h2 className="text-2xl font-bold text-gray-100 mb-4">Settings</h2>
       <div className="flex gap-2 mb-4">
         {(["pots", "categories", "years", "fx"] as const).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-              activeTab === tab ? "bg-primary-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            className={`px-4 py-1.5 text-sm rounded-lg transition-colors ${
+              activeTab === tab ? "bg-primary-600 text-white" : "bg-navy-800 text-gray-400 hover:bg-navy-600"
             }`}>
             {tab === "fx" ? "FX Rates" : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
 
-      <div className="bg-white rounded-lg border shadow-sm p-6">
+      <div className="card p-6">
         {(activeTab === "categories" || activeTab === "pots") && (
           <>
             <div className="flex gap-2 mb-4">
               <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
                 placeholder={activeTab === "pots" ? "New pot name" : "New category name"}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="input-field flex-1"
                 onKeyDown={(e) => e.key === "Enter" && handleAdd()} />
-              <button onClick={handleAdd}
-                className="px-4 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition-colors">
-                Add
-              </button>
+              <button onClick={handleAdd} className="btn-primary">Add</button>
             </div>
             <div className="space-y-1">
               {activeTab === "pots" && pots?.map((p: any) => (
-                <div key={p.id} className="flex justify-between items-center px-3 py-2 rounded hover:bg-gray-50">
-                  <span className="text-sm">{p.name}</span>
-                  <button onClick={() => deletePot.mutate(p.id)}
-                    className="text-red-500 text-xs hover:underline">Remove</button>
+                <div key={p.id} className="flex justify-between items-center px-3 py-2 rounded-lg hover:bg-navy-800/50">
+                  <span className="text-sm text-gray-300">{p.name}</span>
+                  <button onClick={() => deletePot.mutate(p.id)} className="text-gray-500 hover:text-red-400 text-xs">Remove</button>
                 </div>
               ))}
               {activeTab === "categories" && categories?.map((c: any) => (
-                <div key={c.id} className="flex justify-between items-center px-3 py-2 rounded hover:bg-gray-50">
-                  <span className="text-sm">{c.name}</span>
-                  <button onClick={() => deleteCategory.mutate(c.id)}
-                    className="text-red-500 text-xs hover:underline">Remove</button>
+                <div key={c.id} className="flex justify-between items-center px-3 py-2 rounded-lg hover:bg-navy-800/50">
+                  <span className="text-sm text-gray-300">{c.name}</span>
+                  <button onClick={() => deleteCategory.mutate(c.id)} className="text-gray-500 hover:text-red-400 text-xs">Remove</button>
                 </div>
               ))}
             </div>
@@ -97,17 +83,13 @@ export default function SettingsPage() {
         {activeTab === "years" && (
           <>
             <div className="flex gap-2 mb-4">
-              <input type="number" value={newYear} onChange={(e) => setNewYear(Number(e.target.value))}
-                className="w-32 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-              <button onClick={() => createYear.mutate(newYear)}
-                className="px-4 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition-colors">
-                Add Year
-              </button>
+              <input type="number" value={newYear} onChange={(e) => setNewYear(Number(e.target.value))} className="input-field w-32" />
+              <button onClick={() => createYear.mutate(newYear)} className="btn-primary">Add Year</button>
             </div>
             <div className="space-y-1">
               {years?.map((y: any) => (
-                <div key={y.id} className="flex justify-between items-center px-3 py-2 rounded hover:bg-gray-50">
-                  <span className="text-sm">{y.year} {y.is_archived && "(archived)"}</span>
+                <div key={y.id} className="flex justify-between items-center px-3 py-2 rounded-lg hover:bg-navy-800/50">
+                  <span className="text-sm text-gray-300">{y.year} {y.is_archived && "(archived)"}</span>
                 </div>
               ))}
             </div>

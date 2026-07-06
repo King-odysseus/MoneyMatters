@@ -1,5 +1,6 @@
 import { Routes, Route, NavLink } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import Header from "./Header";
 import DashboardPage from "../pages/DashboardPage";
 import LedgerPage from "../pages/LedgerPage";
 import ChecklistPage from "../pages/ChecklistPage";
@@ -18,19 +19,19 @@ const navItems = [
 ];
 
 export default function AppLayout() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <aside className="w-60 bg-white border-r border-gray-100 flex flex-col shrink-0">
-        <div className="px-5 py-5 border-b border-gray-100">
+    <div className="flex h-screen bg-navy-700 dark:bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-60 bg-navy-800 dark:bg-white border-r border-navy-600 dark:border-gray-200 flex flex-col shrink-0">
+        <div className="px-5 py-5 border-b border-navy-600 dark:border-gray-200">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
               <span className="text-white font-bold text-sm">M</span>
             </div>
             <div>
-              <h1 className="text-sm font-bold text-gray-800 leading-tight">Money Matters</h1>
-              <p className="text-xs text-gray-400">{user?.display_name || user?.username}</p>
+              <h1 className="text-sm font-bold text-gray-100 dark:text-gray-800 leading-tight">Money Matters</h1>
             </div>
           </div>
         </div>
@@ -43,8 +44,8 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-primary-50 text-primary-700"
-                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                    ? "bg-primary-600/20 text-primary-400 dark:bg-primary-50 dark:text-primary-700"
+                    : "text-gray-400 dark:text-gray-500 hover:bg-navy-700 dark:hover:bg-gray-100 hover:text-gray-200 dark:hover:text-gray-700"
                 }`
               }
             >
@@ -55,9 +56,9 @@ export default function AppLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="px-3 py-3 border-t border-gray-100">
+        <div className="px-3 py-3 border-t border-navy-600 dark:border-gray-200">
           <button onClick={logout}
-            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors">
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-navy-700 dark:hover:bg-gray-100 hover:text-gray-300 dark:hover:text-gray-600 transition-colors">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
@@ -65,17 +66,21 @@ export default function AppLayout() {
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto p-6">
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/ledger" element={<LedgerPage />} />
-          <Route path="/checklist" element={<ChecklistPage />} />
-          <Route path="/expenses" element={<ExpensesPage />} />
-          <Route path="/transactions" element={<TransactionsPage />} />
-          <Route path="/mortgage" element={<div className="p-8 text-gray-400 text-sm">Mortgage tracker - coming soon</div>} />
-          <Route path="/config" element={<SettingsPage />} />
-        </Routes>
-      </main>
+      {/* Main with header */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header />
+        <main className="flex-1 overflow-auto p-6">
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/ledger" element={<LedgerPage />} />
+            <Route path="/checklist" element={<ChecklistPage />} />
+            <Route path="/expenses" element={<ExpensesPage />} />
+            <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/mortgage" element={<div className="p-8 text-gray-500 text-sm">Mortgage tracker — coming soon</div>} />
+            <Route path="/config" element={<SettingsPage />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 }
