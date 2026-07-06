@@ -3,6 +3,7 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
       colors: {
         primary: { DEFAULT: "#0f766e", light: "#14b8a6" },
         danger: "#dc2626",
