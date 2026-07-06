@@ -1,4 +1,4 @@
-﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import api from "../lib/api";
 
@@ -49,7 +49,7 @@ export default function ExpensesPage() {
           <input type="number" value={activeYear} onChange={(e) => setActiveYear(Number(e.target.value))}
             className="w-20 px-2 py-1 border rounded text-sm text-center" />
           <button onClick={() => setShowAdd(!showAdd)}
-            className="px-3 py-1.5 bg-teal-600 text-white rounded-md text-sm hover:bg-teal-700 transition-colors">+ Add</button>
+            className="px-3 py-1.5 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition-colors">+ Add</button>
         </div>
       </div>
 
@@ -71,7 +71,7 @@ export default function ExpensesPage() {
               className="px-2 py-1.5 border rounded text-sm w-32" />
           </div>
           <button onClick={() => createExpense.mutate(form)} disabled={!form.name || !form.projected_amount}
-            className="px-4 py-1.5 bg-teal-600 text-white rounded-md text-sm hover:bg-teal-700 disabled:opacity-50">Save</button>
+            className="px-4 py-1.5 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 disabled:opacity-50">Save</button>
         </div>
       )}
 
@@ -100,7 +100,7 @@ export default function ExpensesPage() {
                   return (
                     <td key={i} className="text-center px-1.5 py-2">
                       <button onClick={() => toggleMonth.mutate({id: exp.id, monthYear: `${activeYear}-${String(month).padStart(2,"0")}-01`, active: skipped})}
-                        className={`w-5 h-5 rounded text-xs ${skipped ? "bg-gray-200 text-gray-400 hover:bg-red-100" : "bg-teal-500 text-white hover:bg-teal-600"}`}>
+                        className={`w-5 h-5 rounded text-xs ${skipped ? "bg-gray-200 text-gray-400 hover:bg-red-100" : "bg-primary-500 text-white hover:bg-primary-600"}`}>
                         {skipped ? "-" : "v"}
                       </button>
                     </td>

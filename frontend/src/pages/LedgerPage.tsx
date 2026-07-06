@@ -1,4 +1,4 @@
-﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import api from "../lib/api";
 
@@ -51,7 +51,7 @@ export default function LedgerPage() {
             {years.map((y) => (
               <button key={y.id} onClick={() => setActiveYearId(y.id)}
                 className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                  y.id === activeYearId ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  y.id === activeYearId ? "bg-primary-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}>
                 {y.year}
               </button>
@@ -92,7 +92,7 @@ export default function LedgerPage() {
                     <td className="px-4 py-2">
                       <input type="number" step="0.01" value={row.joint_income}
                         onChange={(e) => updateIncome.mutate({ id: row.id, joint_income: e.target.value })}
-                        className="w-28 text-right px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                        className="w-28 text-right px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500" />
                     </td>
                     <td className="px-4 py-2 text-right text-gray-600">{row.monthly_expenses}</td>
                     <td className={`px-4 py-2 text-right ${parseFloat(row.savings) < 0 ? "text-red-600" : "text-gray-900"}`}>

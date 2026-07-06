@@ -1,4 +1,4 @@
-﻿from datetime import date, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from calendar import monthrange
 from rest_framework.decorators import api_view
@@ -59,7 +59,7 @@ def dashboard_summary(request):
 
     # KPI cards - one per pot showing YTD totals
     kpi_cards = []
-    pot_colors = ["#3b82f6", "#06b6d4", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#ec4899", "#14b8a6"]
+    pot_colors = ["#6366f1", "#06b6d4", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#ec4899", "#14b8a6"]
 
     for i, pot in enumerate(pots):
         pot_values = LedgerPotValue.objects.filter(

@@ -1,4 +1,4 @@
-﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import api from "../lib/api";
 
@@ -49,7 +49,7 @@ export default function TransactionsPage() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-800">Transactions</h2>
         <button onClick={() => setShowAdd(!showAdd)}
-          className="px-3 py-1.5 bg-teal-600 text-white rounded-md text-sm hover:bg-teal-700 transition-colors">+ Add</button>
+          className="px-3 py-1.5 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition-colors">+ Add</button>
       </div>
 
       {showAdd && (
@@ -87,7 +87,7 @@ export default function TransactionsPage() {
                 className="px-2 py-1.5 border rounded text-sm w-40" /></div>
             <button onClick={() => createTxn.mutate({...form, pot: form.pot || null})}
               disabled={!form.date || !form.amount}
-              className="px-4 py-1.5 bg-teal-600 text-white rounded-md text-sm hover:bg-teal-700 disabled:opacity-50">Save</button>
+              className="px-4 py-1.5 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 disabled:opacity-50">Save</button>
           </div>
         </div>
       )}

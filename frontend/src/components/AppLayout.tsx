@@ -1,4 +1,4 @@
-﻿import { Routes, Route, NavLink } from "react-router-dom";
+import { Routes, Route, NavLink } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import DashboardPage from "../pages/DashboardPage";
 import LedgerPage from "../pages/LedgerPage";
@@ -25,7 +25,7 @@ export default function AppLayout() {
       <aside className="w-60 bg-white border-r border-gray-100 flex flex-col shrink-0">
         <div className="px-5 py-5 border-b border-gray-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
               <span className="text-white font-bold text-sm">M</span>
             </div>
             <div>
@@ -43,7 +43,7 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-teal-50 text-teal-700"
+                    ? "bg-primary-50 text-primary-700"
                     : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                 }`
               }

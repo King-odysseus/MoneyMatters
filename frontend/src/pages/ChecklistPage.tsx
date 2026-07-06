@@ -1,4 +1,4 @@
-﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import api from "../lib/api";
 
@@ -95,18 +95,18 @@ export default function ChecklistPage() {
             <label className="block text-xs text-gray-400 mb-1">Item name</label>
             <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
               placeholder="e.g. Electricity bill"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               onKeyDown={(e) => e.key === "Enter" && handleAdd()} />
           </div>
           <div className="w-32">
             <label className="block text-xs text-gray-400 mb-1">Amount</label>
             <input type="number" step="0.01" value={newAmount} onChange={(e) => setNewAmount(e.target.value)}
               placeholder="0.00"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               onKeyDown={(e) => e.key === "Enter" && handleAdd()} />
           </div>
           <button onClick={handleAdd}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors">
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">
             Add Item
           </button>
         </div>
@@ -133,7 +133,7 @@ export default function ChecklistPage() {
                     className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
                       item.is_paid
                         ? "bg-emerald-500 border-emerald-500 text-white"
-                        : "border-gray-300 hover:border-teal-400"
+                        : "border-gray-300 hover:border-primary-400"
                     }`}
                   >
                     {item.is_paid && (
@@ -159,7 +159,7 @@ export default function ChecklistPage() {
                           type="number" step="0.01"
                           defaultValue={actual}
                           onChange={(e) => setEditAmount(e.target.value)}
-                          className="w-20 px-2 py-1 border rounded text-right text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+                          className="w-20 px-2 py-1 border rounded text-right text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === "Enter") updateAmount.mutate({ id: item.id, actual_amount: editAmount || actual });
@@ -186,7 +186,7 @@ export default function ChecklistPage() {
                     {!item.is_paid && (
                       <button
                         onClick={() => { setEditItemId(item.id); setEditAmount(actual); }}
-                        className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                         title="Adjust actual amount"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

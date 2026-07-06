@@ -55,7 +55,7 @@ export default function SettingsPage() {
         {(["pots", "categories", "years", "fx"] as const).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-              activeTab === tab ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              activeTab === tab ? "bg-primary-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}>
             {tab === "fx" ? "FX Rates" : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
@@ -68,10 +68,10 @@ export default function SettingsPage() {
             <div className="flex gap-2 mb-4">
               <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
                 placeholder={activeTab === "pots" ? "New pot name" : "New category name"}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 onKeyDown={(e) => e.key === "Enter" && handleAdd()} />
               <button onClick={handleAdd}
-                className="px-4 py-2 bg-teal-600 text-white rounded-md text-sm hover:bg-teal-700 transition-colors">
+                className="px-4 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition-colors">
                 Add
               </button>
             </div>
@@ -98,9 +98,9 @@ export default function SettingsPage() {
           <>
             <div className="flex gap-2 mb-4">
               <input type="number" value={newYear} onChange={(e) => setNewYear(Number(e.target.value))}
-                className="w-32 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                className="w-32 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
               <button onClick={() => createYear.mutate(newYear)}
-                className="px-4 py-2 bg-teal-600 text-white rounded-md text-sm hover:bg-teal-700 transition-colors">
+                className="px-4 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition-colors">
                 Add Year
               </button>
             </div>

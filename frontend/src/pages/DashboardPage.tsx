@@ -47,10 +47,10 @@ export default function DashboardPage() {
   );
 
   const summaryCards = [
-    { label: "Total Income", value: data.total_income_ytd, color: "bg-blue-500", ring: "ring-blue-500" },
+    { label: "Total Income", value: data.total_income_ytd, color: "bg-primary-500", ring: "ring-primary-500" },
     { label: "Total Expenses", value: data.total_expenses_ytd, color: "bg-red-500", ring: "ring-red-500" },
     { label: "Net Cashflow", value: data.net_cashflow_ytd, color: "bg-emerald-500", ring: "ring-emerald-500" },
-    { label: "Total Savings", value: data.total_savings_ytd, color: "bg-purple-500", ring: "ring-purple-500" },
+    { label: "Total Savings", value: data.total_savings_ytd, color: "bg-violet-500", ring: "ring-violet-500" },
   ];
 
   const trendData = data.monthly_trend.map((t) => ({
@@ -70,7 +70,7 @@ export default function DashboardPage() {
           <select
             value={selectedYear ?? ""}
             onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             {data.available_years.map((y) => (
               <option key={y} value={y}>{y}</option>
@@ -83,7 +83,7 @@ export default function DashboardPage() {
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors capitalize ${
-                  period === p ? "bg-teal-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  period === p ? "bg-primary-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
                 {p}
