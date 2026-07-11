@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Foundation setup: install and verify Django 5.2 LTS and Django REST Framework 3.16.
+Foundation setup: understand Django configuration and create the first feature app.
 
 ## Completed
 
@@ -13,17 +13,22 @@ Foundation setup: install and verify Django 5.2 LTS and Django REST Framework 3.
 - Created the living development and learning guide.
 - Verified Python 3.13.14 and pip 26.1.2 from Git Bash.
 - Created and activated `.venv`; the `python` command resolves inside the project environment.
+- Recreated the ignored `.venv` for the current Linux environment with Python 3.12.3.
+- Installed and verified Django 5.2.16 and Django REST Framework 3.16.1.
+- Generated the Django project in `backend` with the project package named `config`.
+- Verified the project with `manage.py check`; Django reported no issues.
+- Verified that the Django test runner loads; zero tests exist at this stage.
 
 ## Next action
 
-The learner runs the bounded framework installation command from Step 2 and shares the three verification outputs.
+Inspect the generated settings and URL configuration, then design and create the first focused app for household identity and membership.
 
 ## Important state
 
-- The clean-restart deletions are not yet committed or pushed.
+- Git currently reports a clean working tree apart from the documentation updates made during this step.
 - `docs/PRD.md` remains the living product requirements document.
 - Every future command and instruction must be recorded in `docs/LEARNING_GUIDE.md` before or as it is introduced.
 
 ## Blockers
 
-The legacy Python Launcher conflicts with Python Install Manager commands, but it does not block development because the Python 3.13 runtime has been verified directly.
+No active blocker. The legacy Windows Python Launcher conflict remains a machine-specific cleanup item and does not block development.

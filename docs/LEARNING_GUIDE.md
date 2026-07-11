@@ -243,6 +243,92 @@ The unbounded command above is retained as a general example, but MoneyMatters u
 
 Do not create the Django project until installation output and installed versions have been checked.
 
+### Step 2 verification completed
+
+This development session ran from Linux rather than the earlier Windows Git Bash
+session. The repository did not contain `.venv` because virtual environments are
+local, ignored files and are not saved in Git. A new Linux environment was created
+with:
+
+```bash
+python3 -m venv .venv
+```
+
+On Linux it can be activated with:
+
+```bash
+source .venv/bin/activate
+```
+
+The bounded installation command resolved and verified these versions:
+
+```text
+Python 3.12.3
+Django 5.2.16
+Django REST Framework 3.16.1
+```
+
+This differs from the Windows environment's Python 3.13.14, but both Python
+versions are supported by Django 5.2. The important rule is that each development
+environment has its own `.venv`; the project dependencies will later be recorded
+in a tracked dependency file so they can be recreated consistently.
+
+Verification succeeded: Django and REST Framework imported from the project
+environment and reported the expected `5.2.x` and `3.16.x` versions.
+
+## Step 3: Create the Django project
+
+### Goal
+
+Generate the minimum backend structure and verify that Django can load it.
+
+### What
+
+A Django **project** holds configuration for the entire backend. A Django **app**
+is a focused feature area inside that project. At this stage we created only the
+project; feature apps will be added separately.
+
+### Commands
+
+From the repository root:
+
+```bash
+mkdir backend
+django-admin startproject config backend
+```
+
+The names have different jobs:
+
+- `backend` is the outer directory containing all backend code.
+- `config` is the Python package containing project-wide Django configuration.
+- `startproject` asks Django to generate its standard project files.
+
+Because the environment does not need to be activated when its interpreter is
+addressed directly, verification can be run with:
+
+```bash
+cd backend
+../.venv/bin/python manage.py check
+../.venv/bin/python manage.py test
+```
+
+### Generated files
+
+- `manage.py`: the project's command-line entry point.
+- `config/settings.py`: installed apps, database, security and other settings.
+- `config/urls.py`: the top-level URL routing table.
+- `config/asgi.py`: entry point for ASGI servers and asynchronous features.
+- `config/wsgi.py`: entry point for traditional WSGI web servers.
+- `config/__init__.py`: marks `config` as an importable Python package.
+
+### Verification completed
+
+`manage.py check` reported no issues. The test runner found zero tests and exited
+successfully. Zero is expected because no feature app or tests exist yet; it confirms
+the test machinery loads but does not prove application behaviour.
+
+No migrations were run, so no development database was created during this step.
+
 ## Maintaining continuity across chats
 
 The repository—not chat memory—should be the durable source of truth. Keep these files current:
