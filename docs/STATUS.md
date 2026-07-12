@@ -2,7 +2,8 @@
 
 ## Current milestone
 
-Foundation setup: understand Django configuration and create the first feature app.
+Foundation setup: learn the generated Django configuration and begin the first
+feature app.
 
 ## Completed
 
@@ -18,14 +19,21 @@ Foundation setup: understand Django configuration and create the first feature a
 - Generated the Django project in `backend` with the project package named `config`.
 - Verified the project with `manage.py check`; Django reported no issues.
 - Verified that the Django test runner loads; zero tests exist at this stage.
+- Expanded the PRD to cover the full personal/shared finance product and all
+  workbook-derived modules.
+- Recorded the agreed navigation, dashboard, onboarding, and Universal Add flows
+  in `docs/UX_SPEC.md`.
 
 ## Next action
 
-Inspect the generated settings and URL configuration, then design and create the first focused app for household identity and membership.
+Review `config/settings.py` and `config/urls.py` together, then let the learner
+create the first focused identity/workspace app one small step at a time.
 
 ## Important state
 
-- Git currently reports a clean working tree apart from the documentation updates made during this step.
+- No feature app or database migration has been created yet.
+- The working tree contains only the requested PRD, UX, learning, and status
+  documentation updates.
 - `docs/PRD.md` remains the living product requirements document.
 - Every future command and instruction must be recorded in `docs/LEARNING_GUIDE.md` before or as it is introduced.
 

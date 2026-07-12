@@ -1,664 +1,794 @@
-﻿# Money Matters — Product Requirements Document
+# Money Matters — Product Requirements Document
 
-Version: 2.0 | Date: 6 July 2026 | Status: Draft
-Multi-user household finance application
-**Stack: Django (backend) + React (frontend) + PostgreSQL**
+Version: 3.0
 
----
+Date: 12 July 2026
 
-## 1. OVERVIEW
+Status: Draft for validation
 
-### 1.1 Problem Statement
+Product: Personal and shared household finance management application
 
-Households managing finances across joint income, monthly expenses, savings pots, mortgage, international investments, property projects, and micro-savings challenges often rely on complex spreadsheets. These are powerful but fragile: formulas can break, data entry is error-prone, and they do not support mobile access, notifications, or real-time multi-user collaboration.
+Planned stack: Django, Django REST Framework, React, TypeScript, PostgreSQL
 
-A household spreadsheet is both a trap and a comfort. The person who built it understands every cell, formula, and colour-coded tab. The problem is not that spreadsheets are bad — it is that they do not travel, do not collaborate, do not notify, and one wrong keystroke can silently break a SUM that cascades through six tabs.
-
-### 1.2 Vision
-
-Money Matters is the spreadsheet's grown-up sibling, not its replacement. It preserves spreadsheet-level flexibility — users define their own categories, pots, expense names — while replacing fragility with automation, collaboration, and clarity.
-
-The app should feel like calm competence. When you open it, you see your money clearly. The layout is dense but not cluttered. Charts are restrained: they inform, not decorate. Interactions are predictable. Nothing flashes gratuitously. The dashboard answers "how are we doing?" in under five seconds not because the data is shallow, but because the design makes the signal obvious and buries the noise.
-
-Nothing is hardcoded. Every dropdown, every column name, every savings pot is user-defined through the Admin module. That flexibility — the sense of "I built this" — is the killer feature.
-
-### 1.3 Target Users
-
-Multiple users per household, each with a permission-based role:
-
-| Role     | Capabilities                                              |
-|----------|-----------------------------------------------------------|
-| Admin    | Full access: user management, configuration, data deletion |
-| Member   | Full read/write on all financial data, no admin settings  |
-| Viewer   | Read-only access to Dashboard and reports (future)        |
-
-Financial-labelled user profiles (Primary User, Secondary User, Joint) are descriptive labels for display and transaction attribution — they do not govern access control. Permission roles govern what users can do.
+Companion document: `docs/UX_SPEC.md`
 
 ---
 
-## 2. SCOPE AND MODULES
+## 1. Product overview
 
-| # | App Module                     | Description                                              | Priority |
-|---|-------------------------------|----------------------------------------------------------|----------|
-| 1 | Authentication & Household     | Sign-up, login, household creation, member invites        | P0       |
-| 2 | Dashboard                      | KPI cards, allocation chart, monthly trend, liquidity     | P0       |
-| 3 | Income & Savings Ledger        | Month-by-month income allocation into savings pots        | P0       |
-| 4 | Recurring Expense Manager      | Toggle recurring expenses on/off per month                | P0       |
-| 5 | Extra/Refund Transaction Log   | Ad-hoc expenses, refunds, pot transfers, interest         | P0       |
-| 6 | Mortgage Tracker               | Amortisation schedule with what-if analysis               | P0       |
-| 7 | Admin / Configuration          | Categories, types, FX rates, years, pots, user management | P0       |
-| 8 | Treasury Bill Portfolio        | Multi-currency T-Bill tracking with FX conversion         | P1       |
-| 9 | Savings Challenge Tracker      | Weekly micro-savings challenge per user                   | P1       |
-|10 | Business Accounts              | Multi-currency company expense and account tracking       | P1       |
-|11 | Property Projects              | Instalment schedules and project payment logs             | P1       |
-|12 | Fees Tracker                   | Multi-person, multi-currency fee payment tracking         | P2       |
-|13 | Returns Log                    | Monthly savings account returns (e.g. NS&I)              | P2       |
-|14 | Investment Roadmap             | Planned and completed investments with status tags        | P2       |
-|15 | Crypto Holdings                | Basic crypto portfolio tracker (deferred until needed)    | P3       |
+### 1.1 Product vision
 
-**Module notes:**
+Money Matters is a financial operating system for an individual or shared
+household. It combines day-to-day money management, savings pots, long-term goals, mortgages,
+multi-currency investments, property projects, fees, savings challenges, business
+finances, and crypto holdings in one understandable application.
 
-- **Liquidity Overview** is merged into the Dashboard as a collapsible "Liquid Cash Snapshot" section rather than a standalone module. A separate page adds navigation weight for what is fundamentally a summary view.
-- **Investment Pipeline** is folded into Investment Roadmap. A separate module for a list of future opportunities with no calculations does not earn its own navigation item. The Roadmap module gains a "Pipeline" tab.
-- **Crypto Holdings** stays at P3 and is deferred until the household actually holds crypto. It is a fundamentally different kind of asset tracker (live prices, wallet addresses, token metadata) and should not add complexity until there is a real use case.
-- **Authentication & Household** is promoted to its own P0 module row. It is the first thing built and the foundation everything else sits on.
+It preserves the flexibility of the household's existing workbook without
+reproducing its fragile formulas or sheet-heavy interface. Users can create their
+own accounts, pots, categories, recurring commitments, portfolios, projects, and
+other records. Workbook examples are starter data, never hardcoded limits.
+
+The product should feel calm, clear, and trustworthy. A user should understand the
+household's position within five seconds, enter common data in a few taps, and open
+an explanation for every calculated figure.
+
+### 1.2 Problem statement
+
+The current workbook successfully tracks complex household finances but has
+important limitations:
+
+- formulas can be overwritten or silently broken;
+- spreadsheet transaction types and signed amounts are difficult to understand;
+- mobile entry is awkward;
+- multiple users can overwrite one another's changes;
+- data is split across many sheets;
+- savings allocations can be confused with genuine spending;
+- current FX rates can accidentally rewrite the meaning of historical values;
+- reminders, reconciliation, audit history, and forecasting are limited;
+- adding years, categories, or pots requires structural spreadsheet changes.
+
+### 1.3 Product principles
+
+1. **Record financial actions in plain language.** Users record income, expenses,
+   refunds, transfers, interest, and adjustments. The system handles signs and
+   accounting effects.
+2. **Separate spending from saving.** A pot contribution reduces freely available
+   money but remains household wealth and is not an expense.
+3. **Separate location, purpose, and goal.** Accounts show where money exists;
+   pots show what money is reserved for; goals show what the household wants to
+   achieve.
+4. **Make configuration user-owned.** Authorised users can add new selectable
+   items without leaving the current task.
+5. **Keep history truthful.** Historical amounts, recurring rates, FX rates, and
+   changes must remain reproducible.
+6. **Explain every result.** Derived totals provide a human-readable calculation
+   breakdown.
+7. **Work equally well alone or together.** A workspace may have one or multiple
+   members. Collaboration appears when relevant, and every material change is
+   attributed.
+8. **Deliver in phases, retain the full vision.** Every module in this document is
+   in product scope, even when scheduled for a later delivery phase.
+
+### 1.4 Target users and workspace modes
+
+During onboarding, the user chooses one of two modes:
+
+- **Manage my own finances:** creates a personal workspace with one member;
+- **Manage finances with others:** creates a shared household workspace and offers
+  member invitations.
+
+Both modes use the same financial model and provide every product module. A solo
+user is not required to configure joint ownership, invitations, or multi-person
+approval. They can invite another person later without moving or recreating data.
+A shared workspace can also return to one active member without losing history.
+
+Roles apply to workspace membership:
+
+| Role | Capabilities |
+|---|---|
+| Household Admin | Full financial access plus household settings, invitations, roles, configuration, exports, and archival/deletion controls |
+| Member | Create, view, and edit household financial data and participate in monthly review |
+| Viewer | Read dashboards and reports without changing financial records |
+
+Profiles may also have descriptive labels such as Primary User, Secondary User,
+or Joint. These labels describe ownership and attribution; permission roles govern
+access.
 
 ---
 
-## 3. DETAILED MODULE REQUIREMENTS
-
-### 3.1 Authentication & Household (P0)
-
-**Purpose:** User sign-up, login, household creation, member invitations, and session management.
-
-**Implementation:** Django's built-in authentication system (`django.contrib.auth`) with session-based auth. Since the React SPA is served by the same Django instance, session cookies work natively — no JWT complexity needed. A `Household` model with a foreign key on the user profile provides multi-tenancy.
-
-**Requirements:**
-
-AUTH-01: Email/password sign-up with email verification
-AUTH-02: Session-based login; no public access — every view requires authentication
-AUTH-03: First user creates a Household during onboarding; subsequent users join via invite
-AUTH-04: Invite flow: Admin generates an invite link; new user registers and is auto-joined to the household
-AUTH-05: Permission roles (Admin, Member, Viewer) enforced at the API level via Django permissions
-AUTH-06: All API queries filtered by `household_id` — middleware stamps the household on every request; viewsets scope querysets accordingly
-AUTH-07: Password reset via email
-AUTH-08: Profile page: name, email, descriptive label (Primary User, Secondary User, Joint), avatar (optional)
-
-### 3.2 Dashboard (P0)
-
-**Purpose:** Single-screen financial health overview for the current year. Should answer "how are we doing?" in under five seconds.
-
-**Key Metrics Cards:** Total Income (YTD), Total Expenses (YTD), Total Savings (YTD), Net Cashflow (YTD), Joint Account Balance, Investment Cash (YTD)
-
-**Category Allocation:** Configurable categories drawn from Admin (e.g. Monthly Expenses, Rainy Day, Career Dev, Holiday Savings, Car Savings, Child Savings, Emergency Funds, Fees, Returns, Investment Cash, New Project/Mortgage)
-
-**Liquidity Snapshot:** Collapsible section showing liquid cash across personal accounts per user (Account name, Amount, Purpose, Balance). This replaces the standalone Liquidity Overview module.
-
-**Requirements:**
-
-DASH-01: KPI cards at top, auto-calculated from Income & Savings Ledger
-DASH-02: Donut/pie chart for Category Allocation — each slice is a household-defined category
-DASH-03: Bar + line combo chart for monthly Income vs Expenses vs Net Cashflow
-DASH-04: All values update in real time when underlying data changes (React Query cache invalidation)
-DASH-05: Year filter (dropdown, defaults to current year)
-DASH-06: Responsive layout: cards stack vertically on mobile, 3-across on desktop
-DASH-07: Liquidity Snapshot section with configurable per-user account tables
-
-### 3.3 Income & Savings Ledger (P0)
-
-**Purpose:** Month-by-month record of joint income allocation into savings pots and expenses. This is the central data table of the application — every other module feeds into it or reads from it.
-
-**Fields:** Month, Year, Joint Income, Savings (calc), Monthly Expenses (calc), plus one column per savings pot (configurable via Admin). Pots are dynamic: users define their own via Admin, not hardcoded columns.
-
-**Requirements:**
-
-MAIN-01: Editable table with one row per month; unique constraint on (year, month) prevents duplicates
-MAIN-02: Auto-calculate Savings = Joint Income - Monthly Expenses
-MAIN-03: Auto-calculate YTD cumulative savings balance
-MAIN-04: Auto-calculate Joint Account Balance = prior year carry-forward balance + YTD savings + investment cash
-MAIN-05: Pot values can go negative (withdrawals exceed contributions); display negative values in red
-MAIN-06: Monthly Expenses auto-sums from Recurring Expense Manager + Extra/Refund Log
-MAIN-07: Pot Breakdown drill-down per pot per month: Checklist adds, Expense from Pot, Refund to Pot, Net Movement
-MAIN-08: "Add New Year" button creates 12 ledger rows, extends recurring expense months, resets challenges (via Django signal)
-MAIN-09: Year tabs for navigation between fiscal years
-MAIN-10: Export current year to Excel
-
-### 3.4 Recurring Expense Manager (P0)
-
-**Purpose:** Define recurring monthly expenses, toggle them on/off per month, auto-sum into the Ledger.
-
-**Fields:** Expense name, Projected amount, Owner (user), Main Category, and per-month toggle state.
-
-**Design decision — exception-based toggles:** A recurring expense is assumed active every month unless explicitly skipped. Instead of storing one row per expense per month (30 expenses x 5 years = 1,800 rows), we store only the *exceptions* in a `recurring_expense_skips` table (expense_id, month_year). This keeps the data lean and makes "add new year" trivial — no rows to create.
-
-**Requirements:**
-
-EXP-01: Editable table; add/remove expense rows dynamically
-EXP-02: Toggle switches per month — OFF means the month is recorded as a skip; all other months are active
-EXP-03: Auto-calculate monthly total: SUM of Projected for all active expenses that month
-EXP-04: Category-level subtotals grouping expenses by Main Category
-EXP-05: Owner filter: view by user or all
-EXP-06: When a new year starts, no action needed — all months default to active
-EXP-07: Changes instantly propagate to Monthly Expenses in Ledger and Dashboard via API cache invalidation
-
-### 3.5 Extra/Refund Transaction Log (P0)
-
-**Purpose:** Log ad-hoc transactions: extra expenses, refunds, pot transfers, interest earned.
-
-**Fields:** Date, Category (from Admin dropdown), Type (from Admin dropdown), Amount (always positive), Notes, SignedAmount (calc), month_year (derived from date for efficient querying)
-
-**Transaction Type Logic:**
-
-| Type                         | Effect                                          |
-|------------------------------|-------------------------------------------------|
-| Expense                      | +Amount to Monthly Expenses                      |
-| Refund                       | -Amount from Monthly Expenses                    |
-| Expense from Pot             | -Amount from selected pot in Ledger              |
-| Refund to Pot                | +Amount to selected pot in Ledger                |
-| Interest earned to Pot       | +Amount to selected pot in Ledger                |
-| Interest earned main account | +Amount to Joint Income                          |
-
-**Requirements:**
-
-LOG-01: Scrollable list view grouped by month (expandable accordion sections)
-LOG-02: Category and Type fields are dropdowns populated from Admin configuration
-LOG-03: SignedAmount auto-calculated based on Type (server-side, returned in API response)
-LOG-04: Monthly subtotals per Type at the bottom of each month section
-LOG-05: Data feeds into Ledger calculations automatically
-LOG-06: Quick-add button at the top of each month group
-LOG-07: Search/filter by category, type, date range, or notes keyword
-
-### 3.6 Mortgage Tracker (P0)
-
-**Purpose:** Full amortisation schedule with variable rates, payment changes, and what-if analysis. Supports a single mortgage per household in v1.
-
-**Inputs:** Loan Amount, Start Date, Term (years), Initial Annual Rate, Fixed Rate Period, New Rate After Fixed, Extra Monthly Payment, Deposit Paid
-
-**Rate Change Table:** Effective Date + Annual Rate (user-editable, supports multiple rate changes over the loan lifetime)
-
-**Payment Change Table:** Effective Date + Monthly Payment (user-editable, supports overrides)
-
-**Summary Metrics:** Monthly Payment, Payoff Date, Total Interest, Total Paid, Current Balance, Interest Paid to Date
-
-**Schedule Fields:** Month number, Payment Date, Annual Rate, Payment amount, Interest portion, Principal portion, Remaining Balance, Notes
-
-**Requirements:**
-
-MTG-01: Input form for loan parameters with instant schedule recalculation on any input change
-MTG-02: Editable rate-change table: add/remove rate changes at any date
-MTG-03: Editable payment-change table: override monthly payment at any date
-MTG-04: Auto-generate full amortisation schedule (up to 360 rows)
-MTG-05: Summary panel with key metrics, always visible above the schedule
-MTG-06: What-if mode: sliders for rate adjustment and extra payment; see impact on payoff date and total interest in real time (all calculation remains server-side; debounced API calls on slider drag)
-MTG-07: Chart: balance-over-time line with principal vs interest stacked bar per payment
-MTG-08: Highlight the current month row in the schedule table
-MTG-09: Optionally save what-if scenarios as named comparisons (stretch goal)
-
-### 3.7 Admin / Configuration (P0)
-
-**Purpose:** Household-level configuration for all dynamic lists and settings. This is the module that makes the app feel like the user's own spreadsheet.
-
-Django's built-in admin (`/admin/`) handles raw CRUD for configuration tables. The custom React admin pages focus on user-friendly configuration workflows: inviting members, reordering pots, managing the household profile.
-
-**Configurable Entities:**
-
-- **Savings Pots:** Name and display order (drag-to-reorder). These become columns in the Ledger and slices in the Dashboard donut chart.
-- **Expense Categories:** Name. Used by Recurring Expense Manager and Extra/Refund Log dropdowns.
-- **Transaction Types:** Name and effect logic (which calculation to trigger). Defaults: Expense, Refund, Expense from Pot, Refund to Pot, Interest earned to Pot, Interest earned main account.
-- **FX Rates:** Currency pair (from_currency, to_currency) and rate. Shared across all multi-currency modules.
-- **Years:** Create/archive fiscal years. Creating a new year triggers the signal cascade.
-- **Household Profile:** Name, base currency (default GBP), fiscal year start month.
-
-**Requirements:**
-
-CFG-01: Savings Pots management with drag-to-reorder for display order
-CFG-02: Category management: add/edit/delete; changes propagate to all dropdowns
-CFG-03: Transaction Type management: add/edit/delete
-CFG-04: FX Rate management: multiple currency pairs, single source of truth
-CFG-05: Year management: add new year (triggers signal cascade), archive old years
-CFG-06: User management: invite new members, change roles, remove members
-CFG-07: Household profile: name, base currency, fiscal start month
-
-### 3.8 Treasury Bill Portfolio (P1)
-
-**Purpose:** Track treasury bill investments across multiple countries/portfolios with FX conversion to base currency.
-
-**Fields per T-Bill:** Portfolio name, Month, Face Value (local currency), Discount Value, Maturity Date, Tenor (days), Discount Rate (%), Profit (local), Value in base currency, Profit in base currency
-
-**Embedded Calculator Inputs:** Face Value, Amount Invested (optional), Discount Rate, Tenor, Investment Date, FX Rate
-**Calculator Outputs:** Purchase Price, Interest/Profit, Total at Maturity, Maturity Date, base currency equivalents
-
-**Requirements:**
-
-TBILL-01: Separate portfolio views per country/account (configurable portfolio names)
-TBILL-02: Add new T-Bill entry with auto-calculation from calculator inputs
-TBILL-03: Embedded calculator: fill inputs, see results instantly (client-side math for responsiveness, server-verified on save)
-TBILL-04: FX rate pulled from Admin config; option to fetch live rates in future
-TBILL-05: Yearly totals row per portfolio
-TBILL-06: Maturity calendar view showing upcoming maturities
-
-### 3.9 Savings Challenge Tracker (P1)
-
-**Purpose:** Weekly micro-savings challenge per household member. Default: 52-week incrementing challenge (week 1 = GBP 1, week 2 = GBP 2, ..., week 52 = GBP 52; total target = GBP 1,378).
-
-**Requirements:**
-
-CHAL-01: Side-by-side trackers per user (or toggle between users)
-CHAL-02: Tap-to-complete toggle per week
-CHAL-03: Progress ring showing % of target reached
-CHAL-04: Summary cards: Total Saved, Weeks Completed, Remaining
-CHAL-05: Configurable increment amount and starting value per challenge
-CHAL-06: "Reset for new year" action (triggered automatically when new year is added via Admin)
-CHAL-07: Reminder notification when a week is not marked complete (future, P3)
-
-### 3.10 Business Accounts (P1)
-
-**Purpose:** Track company expenses and multi-currency business accounts.
-
-**Sections:**
-- Company Expenses: Item, Amount in base currency, Status (paid/pending/owed), Notes
-- Business Accounts: Account name, Description, Amount in local currency, Amount in base currency, Currency, Notes
-
-**Requirements:**
-
-BIZ-01: Configurable number of account tables per business entity
-BIZ-02: Shared FX rate from Admin config; changing the rate recalculates all conversions
-BIZ-03: Status field with colour-coded indicators (green = paid, amber = pending, red = owed)
-BIZ-04: Totals row per section with base currency sum
-BIZ-05: Add/remove expense items and account entries dynamically
-
-### 3.11 Property Projects (P1)
-
-**Purpose:** Track property/building project payments and instalment schedules.
-
-**Sections:**
-- General Project Log: Date, Amount, Currency, Purpose — running total
-- Instalment Schedules per property: Instalment number, Amount, Due Date, Paid status (toggle), Remaining Balance (calc)
-
-**Requirements:**
-
-PROP-01: Editable project log with auto-calculated running total
-PROP-02: Instalment schedule view with paid/unpaid toggle per instalment
-PROP-03: Auto-calculate remaining balance = total instalments - sum of paid
-PROP-04: Highlight the next due (unpaid) instalment
-PROP-05: Timeline/Gantt view showing payment milestones (nice-to-have, stretch)
-
-### 3.12 Fees Tracker (P2)
-
-**Purpose:** Track fee payments for multiple people in multiple currencies. Feeds into the Ledger Fees column.
-
-**Requirements:**
-
-FEES-01: Configurable sub-tables per person: Notes, Amount (local currency), Amount (base currency), Currency
-FEES-02: Auto-convert to base currency using shared FX rates from Admin
-FEES-03: Remaining Fees summary metric
-FEES-04: Data feeds into Ledger Fees column for the relevant month
-
-### 3.13 Returns Log (P2)
-
-**Purpose:** Track monthly savings account returns (e.g. NS&I interest, premium bond prizes).
-
-**Requirements:**
-
-NSI-01: Simple month-by-amount grid: one row per month, columns for each return source
-NSI-02: Auto-sum annual total per source and combined
-NSI-03: Data feeds into Ledger Returns column
-
-### 3.14 Investment Roadmap (P2)
-
-**Purpose:** Track planned and completed investments. The former Investment Pipeline module is merged into this one as a "Pipeline" tab.
-
-**Sections:**
-- Expenses (property/setup costs related to investments)
-- Investments Done (target allocations with status tracking)
-- Pipeline (future investment opportunities — merged from standalone module)
-
-**Requirements:**
-
-INV-01: Three tabs: Expenses, Done, Pipeline
-INV-02: Status tags per investment: Done (green), In Progress (amber), Default (red)
-INV-03: Total calculations per table
-INV-04: Pipeline tab: a simple list of opportunities with estimated amount, notes, and priority
-
-### 3.15 Crypto Holdings (P3 — Deferred)
-
-**Purpose:** Basic crypto portfolio tracker. **Deferred until there is a real use case.** This is a fundamentally different kind of asset tracker requiring live price feeds, wallet address tracking, and token metadata — complexity that should not be added speculatively.
-
-**Placeholder requirements:**
-
-CRY-01: Table: Owner, Month, Amount, Token/Coin symbol
-CRY-02: Manual price entry with optional live price lookup (future API integration)
-
----
-
-## 4. CROSS-CUTTING REQUIREMENTS
-
-### 4.1 Data Flow
-
-All financial calculations live server-side in Django service functions. The frontend never performs financial math — it displays what the API returns.
-
-```
-Recurring Expense Manager --+
-Extra/Refund Log -----------+
-                            +--> Income & Savings Ledger --> Dashboard
-Returns Log ----------------+
-Fees Tracker ---------------+
-
-Admin Config --------------> Dropdowns everywhere
-Admin Config --------------> FX rates (all multi-currency modules)
-Admin Config --------------> Savings pots (Ledger columns + Dashboard slices)
+## 2. Financial model and terminology
+
+### 2.1 Monthly money flow
+
+```text
+Individual income entries
+          |
+          v
+Total household income
+          |
+          +-- actual expenses (money no longer owned)
+          |
+          +-- committed savings allocations (money moved to pots)
+          |
+          v
+Unallocated money remaining
 ```
 
-When a transaction is logged or modified, the server recalculates the affected ledger row and any downstream aggregates. React Query invalidates the affected cache keys, and the frontend refetches. This eliminates the "my phone shows a different number than my laptop" problem.
+The application must not use one ambiguous `Savings` number for all of these
+concepts. It reports:
 
-### 4.2 API Design Principles
+- **Total income:** all qualifying individual income entries;
+- **Actual expenses:** money spent outside the household;
+- **Committed savings:** money moved into designated pots or savings accounts;
+- **Monthly surplus:** income minus actual expenses;
+- **Unallocated money:** income minus actual expenses and committed allocations;
+- **Available cash:** liquid money not reserved by excluded/committed pots;
+- **Total pot balance:** accumulated balance across included pots;
+- **Net worth:** included assets minus included liabilities.
 
-- **Django REST Framework** with ViewSets and ModelSerializers
-- Each module gets its own API namespace: `/api/ledger/`, `/api/expenses/`, `/api/transactions/`, etc.
-- Every viewset scopes its queryset by `request.household` — middleware stamps the household on the request object
-- Endpoints return exactly what the component needs; no under-fetching requiring multiple round trips, no over-fetching that bloats responses
-- Write operations are transactional: logging a transaction and recalculating the ledger happen in a single database transaction
-- All amounts stored as `DecimalField(max_digits=12, decimal_places=2)` — no floating-point in financial data
+### 2.2 Accounts, pots, and goals
 
-### 4.3 Frontend State Management
+- An **account** is where money physically exists, such as a Monzo Joint Account,
+  NS&I account, cash wallet, mortgage, or investment account.
+- A **pot** is a real or virtual allocation for a purpose, such as Emergency Fund
+  or Holiday. A Monzo pot may be represented as a real pot linked to its provider
+  account.
+- A **goal** defines a desired amount and optional target date. A pot can exist
+  without a goal.
 
-- **React Query (TanStack Query)** for all server data: automatic caching, background refetch, cache invalidation, optimistic mutations
-- **React Context** for lightweight UI state: which year is selected, which pot is expanded, filter values
-- No Redux. The complexity-to-value ratio is not justified here.
+### 2.3 Pot balance
 
-### 4.4 Authentication & Multi-User
+A pot value is its actual accumulated balance including the selected month:
 
-AUTH-01: Django session authentication — the React SPA is served by the same Django instance, so session cookies work natively
-AUTH-02: All users within a household see all household data; actions are attributed to the acting user
-AUTH-03: Middleware stamps `request.household` on every authenticated request
-AUTH-04: Permission roles (Admin, Member, Viewer) enforced via Django's permission system
-AUTH-05: Strict household data isolation: no query ever returns data from another household
-
-### 4.5 Currency & Localisation
-
-CUR-01: Configurable base currency per household (default GBP)
-CUR-02: Support unlimited secondary currencies (e.g. NGN, KES, USD, EUR)
-CUR-03: FX rates manually set in Admin; future optional API integration for live rates
-CUR-04: All amounts display with appropriate currency symbol and 2 decimal places
-CUR-05: FX rates are a single source of truth in Admin config — changing a rate recalculates all dependent values
-
-### 4.6 Data Persistence
-
-DATA-01: PostgreSQL database with Django ORM (migrations, querysets, transactions)
-DATA-02: Audit trail on financial fields using `django-simple-history` (tracks old/new values, user, timestamp per changed record)
-DATA-03: Nightly automated database backup (PostgreSQL `pg_dump`, 30-day retention)
-DATA-04: Excel import via Django management command (`python manage.py import_excel workbook.xlsx`) — run once during migration, not a user-facing feature
-DATA-05: Excel export available from the UI: full workbook or single module
-
-### 4.7 Notifications (Future, P3)
-
-NOTIF-01: Monthly reminder: "Enter this month's income and expenses"
-NOTIF-02: Savings challenge weekly reminder
-NOTIF-03: Mortgage payment due reminder
-NOTIF-04: Property instalment due date alert
-NOTIF-05: T-Bill maturity alert
-
----
-
-## 5. TECHNICAL ARCHITECTURE
-
-### 5.1 Technology Stack
-
-| Layer           | Technology                                           |
-|-----------------|------------------------------------------------------|
-| Frontend        | React 18+ with TypeScript                            |
-| Styling         | Tailwind CSS                                         |
-| UI Components   | shadcn/ui                                            |
-| Charts          | Recharts                                             |
-| State           | TanStack Query (server state) + React Context (UI)   |
-| Backend         | Django 5.x with Django REST Framework                |
-| Database        | PostgreSQL 16+                                       |
-| Auth            | Django session authentication                        |
-| Admin           | Django admin (raw CRUD) + custom React pages (config) |
-| Audit           | django-simple-history                                |
-| Task Queue      | Django Q or Celery (for backups, future notifications) |
-| Hosting         | Vercel (frontend) + Railway or Hetzner (backend + DB) |
-
-### 5.2 Database Schema (High-Level)
-
-```
-households
-  id, name, base_currency, fiscal_year_start_month, created_at
-
-users (extends Django User model)
-  id, household_id (FK), display_name, descriptive_role, avatar_url
-
-years
-  id, household_id (FK), year, is_archived
-
-savings_pots
-  id, household_id (FK), name, display_order
-
-monthly_ledger
-  id, year_id (FK), month (1-12), joint_income, savings, monthly_expenses
-  UNIQUE(year_id, month)
-
-ledger_pot_values
-  id, ledger_id (FK), pot_id (FK), amount
-
-recurring_expenses
-  id, household_id (FK), name, projected_amount, owner_id (FK to users), main_category
-
-recurring_expense_skips
-  id, expense_id (FK), month_year (date, first of month)
-  UNIQUE(expense_id, month_year)
-
-extra_transactions
-  id, household_id (FK), date, category, type, amount, notes,
-  signed_amount, month_year (derived from date), pot_id (FK, nullable)
-
-mortgage_config
-  id, household_id (FK), loan_amount, start_date, term_years,
-  initial_rate, fixed_period, new_rate, extra_payment, deposit
-
-rate_changes
-  id, mortgage_id (FK), effective_date, annual_rate
-
-payment_changes
-  id, mortgage_id (FK), effective_date, monthly_payment
-
-treasury_bills
-  id, household_id (FK), portfolio, month, face_value, discount_value,
-  maturity_date, tenor, discount_rate, profit, base_value, base_profit, currency
-
-savings_challenge_config
-  id, user_id (FK), year, increment, start_amount
-
-savings_challenge_weeks
-  id, config_id (FK), week_number, amount, completed
-
-company_expenses
-  id, household_id (FK), item, amount_base, status, notes
-
-business_accounts
-  id, household_id (FK), account_name, description, amount_local,
-  amount_base, currency, notes
-
-property_projects
-  id, household_id (FK), project_name, date, amount, currency, purpose
-
-property_instalments
-  id, project_id (FK), instalment_number, amount, due_date, paid
-
-fees
-  id, household_id (FK), person_name, notes, amount_local, amount_base, currency
-
-returns_log
-  id, household_id (FK), year, month, source, earnings
-
-fx_rates
-  id, household_id (FK), from_currency, to_currency, rate, updated_at
-  UNIQUE(household_id, from_currency, to_currency)
-
-categories
-  id, household_id (FK), name, display_order
-
-transaction_types
-  id, household_id (FK), name, effect_logic
+```text
+opening balance
++ contributions and transfers in
++ interest and refunds
+- withdrawals and transfers out
+= current balance
 ```
 
-### 5.3 Key Architectural Decisions
+Every pot view must show both its current balance and movement during the selected
+month.
 
-1. **Multi-tenant by household.** Each household is an isolated data silo. Middleware stamps `household_id` on every request. Every viewset scopes its queryset by it. No cross-household data leakage possible.
+### 2.4 Controlled financial actions
 
-2. **Calculation engine is server-side.** All financial math lives in Django service modules. Derived values are computed on write and cached in the database (not computed on read). The frontend displays, never calculates.
+Core transaction behaviours are controlled by the system:
 
-3. **Event-driven updates via Django signals.** Logging a transaction triggers recalculation of the affected ledger row and downstream aggregates. Adding a new year triggers creation of 12 ledger rows and challenge reset. Everything happens in a single database transaction per write.
+| Action | Effect |
+|---|---|
+| Income | Increases an account and household income |
+| Expense | Decreases an account and counts as actual spending |
+| Refund | Increases an account and offsets spending in the associated category |
+| Transfer | Decreases one account/pot and increases another; does not change net worth |
+| Interest/return | Increases an account or pot and records financial income |
+| Balance adjustment | Corrects a balance with a reason and audit entry |
 
-4. **Year as a first-class entity.** `Year` is an explicit model with a `post_save` signal that creates ledger rows and resets challenges. This keeps the "add new year" workflow as a single operation.
+Users can create categories, labels, and tags, but cannot create arbitrary effect
+logic that could corrupt calculations.
 
-5. **Exception-based recurring expense toggles.** Expenses are active by default. Only skipped months are stored, keeping the `recurring_expense_skips` table lean.
+### 2.5 Recurring commitments
 
-6. **Immutable audit trail.** `django-simple-history` records every change to financial fields with old value, new value, user, and timestamp. No hand-rolled trigger logic.
+Recurring commitments have two primary kinds:
 
-7. **Savings pots are dynamic.** Users define pot names and order via Admin. Pots become Ledger columns and Dashboard chart slices at runtime — no schema migration needed to add a pot.
+- **Recurring expense:** money leaves the household, such as council tax or a
+  subscription.
+- **Recurring savings allocation:** money remains owned but is committed to a pot.
 
-8. **Derived `month_year` on transactions.** Stored alongside `date` for efficient month-grouped queries without date truncation in SQL. Set automatically on save, not exposed for manual editing.
+Both reduce unallocated money. Only recurring expenses count as spending.
 
-9. **FX rates as single source of truth.** One `fx_rates` table in Admin. All multi-currency modules read from it. Changing a rate recalculates all dependent values.
+Amounts are effective-dated. When editing an occurrence, the interface offers:
 
----
+- change this occurrence only;
+- change from this date onward;
+- correct the entire history.
 
-## 6. USER FLOWS
+### 2.6 Currency history
 
-### 6.1 Onboarding a New Household
-
-1. First user signs up with email and password
-2. Creates a Household: name, base currency (default GBP), fiscal year start month
-3. Configures savings pots: names and display order
-4. Sets up expense categories and transaction types (defaults provided)
-5. Optionally runs `manage.py import_excel` to migrate existing spreadsheet data
-6. Invites other household members via email
-7. Each invited member registers and is auto-joined to the household
-
-### 6.2 Monthly Data Entry (Primary Flow)
-
-1. User logs in, lands on Dashboard showing current year KPIs
-2. Navigates to Income & Savings Ledger, enters Joint Income for the month
-3. Visits Recurring Expense Manager, toggles any expenses that changed this month
-4. Visits Extra/Refund Log, adds any ad-hoc transactions
-5. Returns to Dashboard — all KPIs and charts reflect the new data
-
-### 6.3 Adding a New Recurring Expense
-
-1. Navigate to Recurring Expense Manager
-2. Click "Add Expense"
-3. Enter name, projected amount, owner, main category
-4. The expense is active for all months by default — toggle off any months where it does not apply
-5. Save; monthly totals recalculate; Ledger and Dashboard update
-
-### 6.4 Mortgage What-If Analysis
-
-1. Navigate to Mortgage Tracker
-2. Toggle "What If" mode
-3. Drag the rate slider or adjust extra payment amount
-4. Payoff date and total interest update in real time (debounced API calls)
-5. Optionally save the scenario as a named comparison (stretch goal)
-
-### 6.5 Logging a T-Bill Purchase
-
-1. Navigate to Treasury Bill Portfolio
-2. Select portfolio (country/account)
-3. Click "New T-Bill"
-4. Use the embedded calculator: enter Face Value, Discount Rate, Tenor, Investment Date
-5. Calculator shows Purchase Price, Profit, and base currency equivalents
-6. Save — entry appears in the portfolio table
+Every foreign-currency transaction preserves the original amount, original
+currency, conversion rate used, converted amount, rate date, and rate source.
+Changing a current FX rate must never rewrite completed historical transactions.
+Investments may show historical cost and current valuation using different rates.
 
 ---
 
-## 7. NON-FUNCTIONAL REQUIREMENTS
+## 3. Information architecture
 
-| Requirement      | Target                                                                           |
-|------------------|----------------------------------------------------------------------------------|
-| Performance      | Dashboard loads under 2 seconds; all calculations under 500ms                    |
-| Availability     | 99.5% uptime minimum                                                             |
-| Security         | HTTPS, hashed passwords (Django default: PBKDF2), session cookies HttpOnly+Secure, no financial data in client logs |
-| Responsiveness   | Fully usable on mobile (375px+), tablet, and desktop                             |
-| Accessibility    | WCAG 2.1 AA: proper contrast ratios, keyboard navigation, screen reader labels   |
-| Data Integrity   | All writes transactional; no partial updates; financial fields use Decimal, never float |
-| Backup           | Daily automated pg_dump with 30-day retention                                    |
-| Multi-tenancy    | Strict household data isolation; middleware-enforced at the queryset level        |
-| Browser Support  | Modern evergreen browsers: Chrome, Firefox, Safari, Edge                         |
+### 3.1 Desktop navigation
+
+- Home
+- Activity
+- Monthly Review
+- Accounts
+- Pots & Goals
+- Mortgage
+- Investments
+- Property
+- Fees
+- Challenges
+- Business
+- Reports
+- Settings
+
+The sidebar is collapsible. Users may hide unused specialist modules without
+deleting their data or removing the feature from the product.
+
+### 3.2 Top bar
+
+- household/workspace selector;
+- global month and year selector;
+- global search;
+- notification centre;
+- persistent universal Add button;
+- user profile and theme controls.
+
+### 3.3 Mobile navigation
+
+- Home
+- Activity
+- Add
+- Pots
+- More
+
+All specialist modules remain available under More. Desktop tables become focused
+cards or lists on narrow screens.
+
+### 3.4 Universal Add
+
+The Add button is available throughout the product and supports:
+
+- income;
+- expense;
+- refund;
+- transfer;
+- interest or return;
+- account or pot;
+- recurring commitment;
+- mortgage change or overpayment;
+- investment or treasury bill;
+- property or fee payment;
+- account balance update;
+- receipt/document upload.
+
+Forms progressively reveal only relevant fields and preview the financial effect
+before saving. Common forms support recent selections, templates, duplicate,
+Save and add another, and Undo.
+
+### 3.5 Create items in context
+
+If an authorised user can select a configurable item, they can create one inline
+without abandoning the form. This applies to accounts, pots, categories,
+subcategories, income sources, tags, beneficiaries, portfolios, projects,
+businesses, return sources, and challenges.
+
+Items referenced by history are normally archived rather than deleted. Duplicate
+categories may be merged through an explicit migration workflow.
 
 ---
 
-## 8. TESTING STRATEGY
+## 4. Full module scope and requirements
 
-### 8.1 Backend (Django)
+### 4.1 Authentication, households, and collaboration
 
-- **Unit tests** for all calculation service functions: amortisation schedule, ledger aggregation, FX conversion, savings challenge math
-- **Model tests** for constraints (unique together, Decimal precision, required fields)
-- **API tests** for every endpoint: correct status codes, correct data shapes, household isolation, permission enforcement
-- **Signal tests:** adding a year creates the right ledger rows; logging a transaction updates the right aggregates
+**Purpose:** Secure solo or multi-user access and strict isolation between
+workspaces and businesses.
 
-### 8.2 Frontend (React)
+Requirements:
 
-- **Component tests** (React Testing Library) for critical user interactions: can the user log an expense, toggle a recurring expense, see the dashboard update?
-- **Hook tests** for React Query configurations: correct cache keys, correct invalidation on mutation success
+- email/password registration, verification, login, logout, and password reset;
+- onboarding offers personal or shared use and creates the appropriate workspace;
+- invitations are optional and a personal workspace can become shared later;
+- Admin, Member, and Viewer permissions enforced by the backend;
+- one or multiple members can enter and review data according to role;
+- every change records actor, time, old value, and new value;
+- recent household activity is visible from Home;
+- concurrent edits must not silently overwrite newer changes;
+- no authenticated user can access another household's data;
+- optional avatars and descriptive ownership labels.
 
-### 8.3 End-to-End
+### 4.2 Home dashboard
 
-- **Playwright** smoke tests for the three primary flows: onboarding, monthly data entry, mortgage what-if
-- Not aiming for 100% coverage — aiming for "no financial calculation bug survives contact with production"
+**Purpose:** Answer `How are we doing?` and `What needs attention?` within five
+seconds.
+
+Primary cards:
+
+- available money;
+- income this month;
+- actual expenses;
+- committed savings;
+- unallocated money;
+- total pot balances;
+- net worth;
+- upcoming commitments.
+
+Dashboard sections:
+
+- monthly cashflow breakdown;
+- accounts and pot progress;
+- items needing attention;
+- recent activity by workspace members, hidden when it adds no value for solo use;
+- income, spending, surplus, pot, and net-worth trends;
+- collapsible liquidity snapshot;
+- upcoming mortgage payments, maturities, fees, and property instalments.
+
+Every figure links to its source detail and offers `How was this calculated?`.
+Cards and sections are configurable and respond to the global time filter.
+
+### 4.3 Activity and transaction journal
+
+**Purpose:** Provide one reliable journal for all household financial actions.
+
+Requirements:
+
+- record income as individual entries and calculate workspace totals;
+- record expenses, refunds, transfers, interest, and adjustments;
+- transfers support account-to-account, account-to-pot, pot-to-account, and
+  pot-to-pot movement;
+- a transfer creates balanced source and destination effects and does not change
+  household net worth;
+- support date, amount, account, category, owner, description, notes, tags,
+  currency, and attachments as appropriate;
+- group by day, month, account, category, or action;
+- search by text and filter by date, person, amount, account, pot, category,
+  currency, type, tag, or attachment status;
+- support duplicate detection and linked refund/original-expense relationships;
+- show the understandable effect of every action;
+- allow safe correction with audit history and Undo.
+
+### 4.4 Monthly Review
+
+**Purpose:** Replace the workbook's central ledger with a guided, auditable monthly
+workflow.
+
+Each month includes:
+
+- individual income and total household income;
+- actual expenses;
+- recurring commitments;
+- committed pot allocations;
+- ad-hoc activity;
+- account and pot closing balances;
+- FX valuation checks;
+- notes, reconciliation, and review status.
+
+Statuses are In progress, Reviewed, Reopened, and Reviewed again. Review is
+reversible rather than a permanent accounting lock. Reopening creates an audit
+event. The interface shows who reviewed each section. A solo user reviews alone;
+a shared workspace may optionally require approval from multiple members.
+
+A monthly breakdown must reconcile opening balances, movements, and closing
+balances. Adding a new fiscal year creates the required periods without hardcoded
+pot columns or transaction tables.
+
+### 4.5 Accounts and reconciliation
+
+**Purpose:** Represent where money physically exists and verify calculated balances
+against providers.
+
+Supported account types include current, savings, cash, credit, mortgage,
+investment, foreign currency, NS&I, business, and custom types.
+
+Each account supports:
+
+- individual or joint ownership;
+- institution, name, currency, and optional masked reference;
+- current, available, and reconciled balances;
+- inclusion/exclusion from available cash and net worth;
+- linked pots and recent activity;
+- manual balance history and reconciliation;
+- statement/document attachments;
+- archival without losing transactions.
+
+### 4.6 Pots and goals
+
+**Purpose:** Track real or virtual money reserved for household purposes.
+
+Users can create unlimited pots with name, linked account/provider, currency,
+opening balance, purpose, owner, icon, colour, priority, regular contribution,
+liquidity setting, and archive status.
+
+Goals support target amount, target date, priority, progress, suggested monthly
+contribution, and forecast completion date. Pot pages show opening balance,
+contributions, transfers, interest, refunds, withdrawals, closing balance, goal
+progress, and full history. Negative balances are allowed only when explicitly
+configured and are clearly highlighted.
+
+### 4.7 Recurring commitments
+
+**Purpose:** Manage predictable expenses and savings allocations without a fragile
+spreadsheet grid.
+
+Each commitment supports:
+
+- name, kind, amount, owner, category, source account, and optional destination
+  pot;
+- weekly, fortnightly, four-weekly, monthly, quarterly, six-monthly, annual, or
+  custom frequency;
+- start date, optional end date, due rule, reminders, notes, and active status;
+- effective-dated amount history;
+- skip, pause, or override for a single occurrence;
+- list/calendar views and an optional desktop year grid;
+- projected versus confirmed status;
+- monthly totals split between spending and committed saving.
+
+### 4.8 Mortgage
+
+**Purpose:** Track one or more mortgages and model future repayment choices.
+
+Each mortgage includes property, original loan, deposit, start date, term,
+interest-rate periods, payment changes, overpayments, fees, and actual balance.
+
+The module provides:
+
+- amortisation schedule with payment, interest, principal, and balance;
+- effective-dated rate and payment changes;
+- current payment, balance, interest paid, principal repaid, total interest,
+  payoff date, fixed-rate end, and loan-to-value;
+- current-row highlighting and balance-over-time charts;
+- rate-expiry and payment reminders;
+- what-if comparisons for rates, payment changes, and overpayments;
+- named scenarios that never alter real records unless explicitly applied.
+
+### 4.9 Treasury bills
+
+**Purpose:** Track multiple local and foreign-currency treasury bill portfolios.
+
+Records include issuer/country, portfolio/account, currency, purchase date, face
+value, purchase or discount value, discount rate, tenor, maturity date, expected
+return, actual return, purchase FX rate, current valuation rate, and status.
+
+The module provides a verified calculator, portfolio totals, maturity calendar,
+currency exposure, alerts, annual performance, and flows for withdrawal or
+reinvestment at maturity.
+
+### 4.10 Investments, NS&I, and roadmap
+
+**Purpose:** Bring household investments and returns together without losing
+specialist detail.
+
+Tabs include Holdings, Returns, NS&I, Roadmap, Proposed, and Pipeline. The module
+distinguishes contributions, income/returns, capital growth, withdrawals, and
+fees. Holdings record cost, current value, currency, owner, account, and valuation
+date. NS&I supports monthly prizes/interest by source. Roadmap items support
+target amount, priority, status, notes, and planned date.
+
+### 4.11 Property projects
+
+**Purpose:** Track property purchases, construction, renovation, and instalment
+commitments.
+
+Each property/project supports budget, currency, dates, suppliers, status,
+payment log, instalment schedule, documents, and notes. Views show amount paid,
+remaining budget, next payment, overdue instalments, running total, and timeline.
+Historical and current FX values remain distinct.
+
+### 4.12 Fees
+
+**Purpose:** Track multi-person, multi-purpose, and multi-currency fee obligations.
+
+Each fee supports beneficiary, type, description, original currency, expected
+amount, due date, instalments, paid amount, remaining amount, funding account/pot,
+documents, and status. Payments can feed the household journal and monthly review.
+Supported examples include school, legal, visa, professional, and property fees;
+users can add their own types.
+
+### 4.13 Savings challenges
+
+**Purpose:** Make structured micro-saving visible and connected to real money.
+
+Supported templates include 1p, 52-week, fixed weekly, round-up, and custom
+schedules. Each challenge has participant(s), funding account, destination pot,
+target, dates, schedule, reminders, and progress. Completing a contribution can
+create or link to a real transfer; the challenge must not become an unbacked set of
+decorative checkboxes.
+
+### 4.14 Business workspace
+
+**Purpose:** Include business finance without distorting household reporting.
+
+Users can create multiple businesses. Each is an isolated workspace with its own
+dashboard, members/permissions, accounts, transactions, income, expenses,
+categories, currencies, projects, documents, and reports.
+
+Money moving between household and business is recorded as an explicit boundary
+transaction. Business values are excluded from household spending and net worth
+unless an explicit investment, loan, distribution, or owner's-equity relationship
+connects them.
+
+### 4.15 Crypto
+
+**Purpose:** Track crypto holdings as a specialist asset class.
+
+The module supports wallets and exchanges, tokens, purchases, sales, transfers,
+network/trading fees, manual or optional live prices, historical cost, current
+valuation, realised and unrealised gains, owner, and currency conversion. Manual
+entry remains fully usable without third-party integrations.
+
+### 4.16 Reports and forecasting
+
+Reports cover:
+
+- monthly cashflow and surplus;
+- income by source and person;
+- spending by category and merchant;
+- recurring versus ad-hoc spending;
+- committed saving and savings rate;
+- pot contributions, withdrawals, balances, and goal progress;
+- account balances and reconciliation;
+- household net worth;
+- mortgage performance;
+- investment and treasury bill performance;
+- maturity and obligation calendars;
+- property commitments and remaining fees;
+- multi-currency valuation and exposure;
+- separate business reporting.
+
+Users can filter, save report views, and export permitted data to Excel, CSV, or
+PDF. Forecasts show end-of-month balance, future cashflow, goal completion,
+upcoming obligations, and scenario comparisons. Forecast values are always
+visually labelled as estimates.
+
+### 4.17 Calendar, alerts, and notifications
+
+A combined calendar contains recurring commitments, mortgage events, treasury
+bill maturities, property instalments, fees, challenge contributions, and custom
+reminders.
+
+Configurable alerts include missing income, low projected balance, unusual
+expense, recurring amount change, possible duplicate, unreconciled account,
+overdue monthly review, goal falling behind, mortgage rate expiry, bill/payment
+due, maturity, stale FX rate, and overdue fee/instalment.
+
+Notifications may be in-app and, when configured, email or push. Users control
+channels, timing, and quiet periods.
+
+### 4.18 Settings and administration
+
+Settings are grouped into Household, Money Setup, Modules, Notifications, and
+Data. Admins can manage:
+
+- household profile, base currency, locale, and fiscal year;
+- members, invitations, roles, and descriptive ownership labels;
+- accounts, pots, categories, subcategories, income sources, tags, and colours;
+- recurring commitments and reusable transaction templates;
+- currencies, current FX rates, and rate sources;
+- module visibility and dashboard layout;
+- notification rules;
+- imports, exports, backups, audit history, and archived items.
 
 ---
 
-## 9. MIGRATION PLAN
+## 5. Shared interaction and usability requirements
 
-### Phase 1: Data Import
-Build the Django management command `import_excel` that parses `.xlsx` and maps sheets to database tables. Validate row counts and totals match the original spreadsheet before committing.
-
-### Phase 2: Parallel Running (1-2 months)
-Users enter data in the app while continuing the spreadsheet. Cross-check monthly totals between app and Excel. Fix any calculation discrepancies.
-
-### Phase 3: Cutover
-Stop using the spreadsheet. Enable notifications. Archive the Excel file as a historical backup.
-
----
-
-## 10. SUCCESS METRICS
-
-- Data entry time per month: under 15 minutes (vs ~30 minutes in spreadsheet)
-- Errors in monthly totals: 0 (automated calculations eliminate formula breaks)
-- Mobile usage: users access from phone at least once per week
-- Dashboard answers "How much have we saved?": under 5 seconds
-- Household adoption: multiple members actively logging transactions
-
----
-
-## 11. OPEN QUESTIONS
-
-1. Should the app support simultaneous real-time editing by multiple household members? (Optimistic locking vs last-write-wins)
-2. Should FX rates auto-update via an external API, or is manual entry sufficient for the foreseeable future?
-3. What is the budget/target for hosting costs per household?
-4. Should savings challenges support fully custom increment schedules beyond the default linear increment?
-5. Which secondary currencies are needed at launch beyond the base currency?
-6. Should the app support multiple mortgages per household? (v1 assumes one)
-7. Should there be a shared documents/receipts upload feature?
-8. Which hosting provider: Railway, Hetzner, or a simple VPS with Dokku?
+- Common data entry must work comfortably at 375 px mobile width.
+- Searchable selectors replace long dropdowns and show recent items first.
+- Forms use plain language and progressively disclose advanced fields.
+- Monetary actions preview their account, spending, pot, and net-worth effects.
+- The application provides Undo when technically and financially safe.
+- Empty states explain the purpose of a page and offer the correct first action.
+- Tables support keyboard navigation on desktop and focused card/list views on
+  mobile.
+- Filters and selected month/year persist during a session.
+- Light and dark themes are supported.
+- Midnight navy is the primary structural brand colour; bronze is an accent, not
+  a replacement for semantic status colours.
+- Green indicates positive/complete, amber indicates attention, and red indicates
+  genuine risk or negative state. Meaning is never conveyed by colour alone.
+- Every calculated figure can expose its inputs and calculation.
+- Destructive actions require clear confirmation; archival is preferred.
+- Loading, success, validation, conflict, offline, and failure states are explicit.
+- WCAG 2.1 AA keyboard, screen-reader, focus, contrast, and touch-target standards
+  are required.
 
 ---
 
-## 12. APPENDIX
+## 6. Data integrity, security, and technical constraints
 
-### A. Default Category List (configurable per household)
-Monthly Expenses, Rainy Day, Career Dev, Returns, Holiday Savings, Car Savings, Child Savings, Emergency Funds, Investment Cash, Fees, New Project/Mortgage, Dates, Holiday, Food, Home, Uncategorised
+- PostgreSQL is the persistent source of truth.
+- Financial amounts use decimal arithmetic, never binary floating point.
+- All financial writes and their downstream calculations are transactional.
+- Household and business-workspace isolation is enforced on every backend query.
+- Derived values are calculated by tested backend domain services. The frontend
+  may preview calculations but cannot become the financial source of truth.
+- Transfers are balanced and cannot be partially saved.
+- Financial history records actor, time, reason where applicable, old value, and
+  new value.
+- Historical transactions snapshot their relevant FX rate and recurring amount.
+- Sensitive values are excluded from client and server logs.
+- Authentication cookies are Secure, HttpOnly, and appropriately protected from
+  CSRF; all production traffic uses HTTPS.
+- Backups are automatic, encrypted where supported, monitored, and restore-tested.
+- Receipt and document access follows the same household/workspace permissions as
+  its parent record.
+- Calculation and aggregate changes require automated regression tests against
+  known workbook examples.
 
-### B. Default Transaction Types (configurable per household)
-Expense, Refund, Expense from Pot, Refund to Pot, Interest earned to Pot, Interest earned main account
+Target service levels:
 
-### C. Default User Roles (permission-based)
-- **Admin:** Full access including user management, configuration, and data deletion
-- **Member:** Full read/write on all financial data; no access to admin settings
-- **Viewer:** Read-only access to Dashboard and reports (future)
+| Area | Target |
+|---|---|
+| Dashboard | useful content within 2 seconds under normal household data volumes |
+| Financial recalculation | affected-month result within 500 ms for normal operations |
+| Availability | 99.5% minimum after production launch |
+| Responsive support | mobile 375 px+, tablet, and modern desktop browsers |
+| Accessibility | WCAG 2.1 AA |
+| Backup retention | daily backups retained for at least 30 days |
 
-### D. Default Savings Pots (configurable per household)
-Rainy Day, Career Dev, Holiday Savings, Car Savings, Child Savings, Emergency Funds, Investment Cash, New Project/Mortgage
+---
+
+## 7. Import, export, and migration
+
+### 7.1 Existing workbook migration
+
+The original workbook is imported through a repeatable migration tool. The import
+must map accounts, pots, individual income where available, recurring commitments,
+extra/refund entries, mortgage configuration, treasury bills, challenges, fees,
+returns, property records, business data, and other supported modules.
+
+Before commit, an import preview reports row counts, warnings, unmapped categories,
+duplicates, and calculated totals. Imported totals are reconciled against the
+workbook for representative months and annual summaries.
+
+Hand-typed monthly arithmetic is not copied as opaque totals when its underlying
+entries can be reconstructed. Unreconstructable historical totals are imported as
+clearly labelled opening balances or adjustments with notes.
+
+### 7.2 Ongoing import/export
+
+- bank CSV import with mapping, preview, and duplicate detection;
+- Excel, CSV, and PDF export according to module and permissions;
+- full household data export for portability;
+- optional future open-banking connections, introduced only after provider,
+  security, cost, and regulatory review.
+
+### 7.3 Cutover
+
+Run the application and workbook in parallel for one or two complete monthly
+cycles. Compare account balances, expense totals, pot movements, mortgage figures,
+and FX results before making the application the primary system.
+
+---
+
+## 8. Delivery plan
+
+All modules are in scope. Phases define build order, not whether a feature will be
+built.
+
+### Phase 1 — Shared financial foundation
+
+- authentication, households, roles, and invitations;
+- accounts, pots, categories, goals, and dynamic inline creation;
+- income, expenses, refunds, transfers, interest, and audit history;
+- core responsive navigation and universal Add.
+
+### Phase 2 — Monthly operating workflow
+
+- recurring expenses and savings allocations;
+- effective-dated amount changes;
+- Monthly Review, reconciliation, and reversible review status;
+- Home dashboard, explanations, search, and core reports.
+
+### Phase 3 — Mortgage and data portability
+
+- mortgages, amortisation, overpayments, rate/payment history, and what-if;
+- workbook import, bank CSV import, Excel/CSV/PDF export;
+- notifications, calendar, backup operations, and regression reconciliation.
+
+### Phase 4 — Investments and international money
+
+- treasury bills;
+- investments, NS&I, roadmap, proposed investments, and pipeline;
+- historical/current FX handling and multi-currency reporting.
+
+### Phase 5 — Household commitments
+
+- property projects and instalments;
+- fees;
+- savings challenges;
+- expanded forecasting and obligation calendar.
+
+### Phase 6 — Business workspace
+
+- isolated multi-business workspaces;
+- business accounts, transactions, projects, documents, and reports;
+- explicit household/business boundary transactions.
+
+### Phase 7 — Crypto and optional integrations
+
+- crypto portfolios, wallets, activity, cost, and valuation;
+- optional live market data and approved external integrations;
+- advanced automation and forecasting refinements.
+
+Each phase requires user-flow acceptance, accessibility checks, financial
+calculation tests, household isolation tests, and updated documentation before the
+next phase begins.
+
+---
+
+## 9. Success measures
+
+- A normal transaction can be entered on mobile in under 20 seconds.
+- Monthly household review can be completed in under 15 minutes.
+- Dashboard users can identify available money, spending, committed saving, and
+  net worth within five seconds.
+- No pot transfer is reported as actual spending.
+- Account and pot movements reconcile to closing balances.
+- Historical recurring and FX calculations remain reproducible after later rate
+  changes.
+- Solo users complete their own reviews, while shared workspaces show active
+  participation from their members.
+- Users can add a new pot, category, recurring item, account, or specialist record
+  without developer intervention.
+- No financial calculation discrepancy survives the parallel-run cutover.
+- No cross-household or cross-business unauthorised data access occurs.
+
+---
+
+## 10. Acceptance scenarios
+
+1. A member records salary into the Joint Account; household income and the
+   account balance increase.
+2. A member pays council tax; actual expenses increase and the source account
+   decreases.
+3. A member moves money into Emergency Fund; committed savings and that pot
+   increase, available/unallocated money decreases, and actual expenses do not
+   increase.
+4. A member transfers Holiday money to Car; total household wealth is unchanged
+   and both pot histories show the movement.
+5. Council tax rises from a chosen month; earlier monthly reviews retain the old
+   amount.
+6. A foreign-currency bill retains its transaction-time conversion after the
+   current FX rate changes.
+7. A solo user can review and reopen a month; in a shared workspace, another
+   member's later correction also reopens it and preserves the complete history.
+8. An Admin creates a new pot or category inline while entering a transaction and
+   immediately selects it.
+9. A treasury bill matures; the user records withdrawal or reinvestment without
+   duplicating its return.
+10. Business spending remains excluded from household expense reports unless an
+    explicit boundary transaction links the workspaces.
+
+---
+
+## 11. Decisions confirmed during discovery
+
+- A pot value is the accumulated amount saved, including the selected month's
+  movement.
+- Recurring expenses are genuine spending; recurring pot contributions are
+  separate committed savings allocations.
+- Pots/accounts correspond to real financial locations such as Monzo pots, while
+  virtual allocations remain supported.
+- Workspace income is calculated from individual income entries.
+- Direct pot-to-pot transfers are supported.
+- Recurring amounts can change over time without rewriting history.
+- Historical FX rates are preserved.
+- Business finances are isolated from household reporting.
+- The application supports one or multiple workspace members; solo users can
+  invite others later without migrating data.
+- Monthly review is reversible and audited.
+- Every workbook-derived module is included in the full product.
+- Users can create new categories, recurring commitments, pots, and other
+  configurable items without code changes.
+
+---
+
+## 12. Remaining product questions
+
+These questions do not block the full vision but must be resolved before their
+relevant implementation phase:
+
+1. Which account providers and opening balances will be included in the initial
+   import?
+2. For shared workspaces, should multi-person review be enabled by default or only
+   when an Admin turns it on?
+3. Which events require receipt/document retention, and for how long?
+4. Which currencies are required for the first migration?
+5. Which live FX, market-price, or open-banking providers are acceptable, if any?
+6. How should property market values be sourced for net-worth reporting?
+7. Which business ownership relationships should count toward household net worth?
+8. What deployment budget, region, retention policy, and recovery target are
+   required for production?
 
 ---
 
