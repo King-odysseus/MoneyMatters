@@ -2,8 +2,8 @@
 
 ## Current milestone
 
-Foundation setup: learn the generated Django configuration and begin the first
-feature app.
+Identity foundation: convert the declared custom user into the final email-based
+user model before the first migration.
 
 ## Completed
 
@@ -23,17 +23,22 @@ feature app.
   workbook-derived modules.
 - Recorded the agreed navigation, dashboard, onboarding, and Universal Add flows
   in `docs/UX_SPEC.md`.
+- Created and registered the learner-written `identity` Django app.
+- Declared `identity.User` by inheriting from Django's `AbstractUser`.
+- Configured `AUTH_USER_MODEL` before the first database migration.
+- Verified the registered app and custom user declaration with `manage.py check`.
 
 ## Next action
 
-Review `config/settings.py` and `config/urls.py` together, then let the learner
-create the first focused identity/workspace app one small step at a time.
+Teach and implement email-based login on `identity.User`, including its user
+manager and tests, before generating or applying the first migration.
 
 ## Important state
 
-- No feature app or database migration has been created yet.
-- The working tree contains only the requested PRD, UX, learning, and status
-  documentation updates.
+- The `identity` feature app exists and is registered.
+- The custom user is currently a deliberate `AbstractUser` placeholder; username
+  removal and email login are the next step.
+- No database migration has been generated or applied.
 - `docs/PRD.md` remains the living product requirements document.
 - Every future command and instruction must be recorded in `docs/LEARNING_GUIDE.md` before or as it is introduced.
 

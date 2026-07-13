@@ -329,6 +329,243 @@ the test machinery loads but does not prove application behaviour.
 
 No migrations were run, so no development database was created during this step.
 
+## Step 4: Create and register the identity app
+
+### Goal
+
+Create the first focused Django application. It will eventually contain the
+email-based user, personal/shared workspace, and workspace membership features.
+
+### What and why
+
+A Django **project** holds system-wide configuration. A Django **app** is a focused
+feature package within that project. Keeping identity and workspace behaviour in a
+dedicated app makes its models, tests, migrations, and administrative screens
+easier to locate and maintain.
+
+The app is named `identity` rather than `accounts` because Money Matters will also
+have financial accounts. Distinct names avoid ambiguity between authentication
+and money storage.
+
+### Command used
+
+From the repository root:
+
+```bash
+cd backend
+../.venv/bin/python manage.py startapp identity
+```
+
+Command breakdown:
+
+- `cd backend` changes the current shell directory to the Django backend.
+- `..` means the parent directory of the current directory.
+- `../.venv/bin/python` addresses the virtual environment's Python interpreter
+  directly, so shell activation is not required.
+- `manage.py` is Django's project command-line utility.
+- `startapp` asks Django to generate the standard structure for a feature app.
+- `identity` is the Python package and Django app name.
+
+This technique is used whenever a Django project gains a new cohesive feature
+area. Apps should represent meaningful domains, not be created for every model or
+screen.
+
+### Inspect the generated structure
+
+```bash
+find identity -maxdepth 2 -type f | sort
+```
+
+Command breakdown:
+
+- `find` searches the filesystem.
+- `identity` is the directory where the search starts.
+- `-maxdepth 2` prevents the search going more than two levels below that
+  directory.
+- `-type f` returns files only, excluding directories.
+- `|` is a pipe; it sends the output on its left to the command on its right.
+- `sort` arranges the resulting paths alphabetically.
+
+The generated files are:
+
+- `identity/__init__.py`: marks the directory as an importable Python package;
+- `identity/admin.py`: registers models with Django Admin;
+- `identity/apps.py`: configures how Django discovers and initialises the app;
+- `identity/models.py`: contains database model declarations;
+- `identity/tests.py`: contains automated tests;
+- `identity/views.py`: contains HTTP request handlers when they are introduced;
+- `identity/migrations/__init__.py`: makes the migrations directory a Python
+  package; schema migration files will be added there later.
+
+### Register the app
+
+Add the generated configuration class to `INSTALLED_APPS` in
+`backend/config/settings.py`:
+
+```python
+INSTALLED_APPS = [
+    # Django framework apps...
+    'identity.apps.IdentityConfig',
+]
+```
+
+`identity.apps.IdentityConfig` is a Python dotted path:
+
+- `identity` is the package;
+- `apps` is `identity/apps.py`;
+- `IdentityConfig` is the configuration class inside that module.
+
+When Django starts, it reads `INSTALLED_APPS` and builds an application registry.
+`IdentityConfig` tells it which package belongs to this app and which default
+primary-key type to use. The generated class currently contains:
+
+```python
+class IdentityConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'identity'
+```
+
+- `name` identifies the app's importable package.
+- `default_auto_field` makes an automatically generated model `id` a 64-bit,
+  increasing integer unless the model defines a different primary key.
+
+An app configuration can later provide a readable `verbose_name` or a `ready()`
+startup hook. Ordinary business logic and startup database queries should not be
+placed in `ready()`.
+
+### Expected result
+
+The `identity` directory contains the generated files and
+`identity.apps.IdentityConfig` appears once in `INSTALLED_APPS`.
+
+### Common problems
+
+- Running `startapp` from the wrong directory may produce `manage.py` not found.
+- Running it twice with the same name reports that the destination already exists.
+- Creating the directory is not enough: an app absent from `INSTALLED_APPS` is not
+  discovered as part of the Django project.
+- Do not run database migrations yet. Money Matters needs to define its custom
+  user model before the first migration.
+
+### Verification
+
+The learner created the app, inspected the generated files, and added its
+configuration class to `INSTALLED_APPS`.
+
+From the `backend` directory, validate the project configuration before adding
+models:
+
+```bash
+../.venv/bin/python manage.py check
+```
+
+Command breakdown:
+
+- `../.venv/bin/python` uses the project virtual environment's interpreter;
+- `manage.py` loads the Money Matters Django project and its settings;
+- `check` runs Django's system-check framework without starting the server or
+  changing the database.
+
+Expected output:
+
+```text
+System check identified no issues (0 silenced).
+```
+
+If Django cannot import `IdentityConfig`, check the spelling of the dotted path,
+confirm `identity/apps.py` exists, and confirm the shell is currently in `backend`.
+Do not run migrations at this point.
+
+## Step 5: Declare the custom user model before migrating
+
+### Goal
+
+Tell Django that Money Matters owns its user model before the first database
+migration. This initial declaration deliberately keeps Django's standard user
+behaviour; email-based authentication will be added in the next focused step.
+
+### What, why, and when
+
+Django's built-in authentication app provides a `User` model. A real application
+often needs to extend or change it. Swapping user models after migrations and
+foreign keys exist is difficult, so Django recommends declaring the project's
+custom user model at the beginning.
+
+`AbstractUser` supplies Django's existing password hashing, permissions, groups,
+staff status, names, and authentication behaviour. Inheriting from it is safer
+than rebuilding authentication from scratch.
+
+This technique is useful when a project may need email login, profile fields, or
+relationships attached to its own user type.
+
+### Model declaration
+
+Replace the generated contents of `backend/identity/models.py` with:
+
+```python
+from django.contrib.auth.models import AbstractUser
+
+
+class User(AbstractUser):
+    pass
+```
+
+- `from ... import ...` makes Django's `AbstractUser` class available in this
+  module.
+- `class User(AbstractUser)` declares that Money Matters' user inherits Django's
+  complete standard user implementation.
+- `pass` is a Python no-operation statement. It keeps an otherwise empty class
+  body valid while custom behaviour is added in the next step.
+
+### Project setting
+
+Add this setting near the bottom of `backend/config/settings.py`:
+
+```python
+AUTH_USER_MODEL = 'identity.User'
+```
+
+The value is `app_label.ModelName`, not a Python file path:
+
+- `identity` is the Django app label;
+- `User` is the model class name.
+
+Django and future foreign keys will now reference `identity.User` rather than
+`auth.User`.
+
+### Verification command
+
+From `backend`:
+
+```bash
+../.venv/bin/python manage.py check
+```
+
+As before, this loads the project and runs Django's validation without changing
+the database. Expected output is `System check identified no issues (0 silenced)`.
+
+### Common problems
+
+- Do not run `migrate` before `AUTH_USER_MODEL` and the final email behaviour are
+  ready.
+- The class name and setting are case-sensitive: `User` is not `user`.
+- Import `AbstractUser` from `django.contrib.auth.models`, not from the local app.
+- Do not add a second user model later; extend this one through deliberate schema
+  changes.
+
+### Verification completed
+
+The learner declared `identity.User`, configured `AUTH_USER_MODEL`, and ran the
+system check. Django reported:
+
+```text
+System check identified no issues (0 silenced).
+```
+
+No migrations have been generated or applied. The placeholder model intentionally
+retains Django's username field until the next lesson implements and tests the
+final email-based login behaviour.
+
 ## Maintaining continuity across chats
 
 The repository—not chat memory—should be the durable source of truth. Keep these files current:
