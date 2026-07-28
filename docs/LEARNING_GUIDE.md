@@ -264,3 +264,79 @@ Keep recording every command and instruction in docs/LEARNING_GUIDE.md.
 ```
 
 Use the same existing thread when it is convenient, but start a new one at a clean milestone when the conversation becomes unwieldy. Do not repeatedly paste the entire history; point the new chat to the repository documents. Keep steps focused, summarize decisions in files, and commit regularly. This reduces dependence on conversation context while making the project understandable to both you and future collaborators.
+
+### Step 2 verification (completed 28 July 2026)
+
+The bounded installation was run from Git Bash:
+
+```bash
+source .venv/Scripts/activate
+python -m pip install "Django~=5.2.0" "djangorestframework~=3.16.0"
+```
+
+Verification outputs:
+
+```text
+(.venv)
+$ python -m django --version
+5.2.16
+
+$ python -c "import rest_framework; print(rest_framework.VERSION)"
+3.16.1
+
+$ python -m pip list
+Package             Version
+------------------- -------
+asgiref             3.12.1
+Django              5.2.16
+djangorestframework 3.16.1
+pip                 26.1.2
+sqlparse            0.5.5
+tzdata              2026.3
+```
+
+All three checks passed. The project scaffold was created:
+
+```bash
+django-admin startproject config .
+```
+
+This created `manage.py` and the `config/` package (settings, urls, wsgi, asgi) at the repository root. The trailing dot places files in the current directory rather than nesting them inside a second `config/` directory.
+
+## Step 3: Create the accounts app and core models
+
+### Goal
+
+Create the first Django app (`accounts`) containing the `Household` and `UserProfile` models — the multi-tenancy foundation that every other module depends on.
+
+### What
+
+A Django app is a self-contained Python package with models, views, and URL configuration. `accounts` will hold:
+
+- `Household`: the top-level container for all financial data. Every user belongs to exactly one household, and every model inherits a `household` foreign key for data isolation.
+- `UserProfile`: extends Django's built-in `User` model with a `household` foreign key, a descriptive role label (Primary User, Secondary User, Joint), and an optional avatar.
+
+### Why
+
+Authentication and household membership are the first P0 module in the PRD. Without a user model linked to a household, no other module can scope its queries correctly. Building this first establishes the multi-tenancy pattern that every subsequent viewset will follow.
+
+### When
+
+Create `accounts` immediately after the project scaffold exists, before any financial models.
+
+### Commands
+
+```powershell
+.\.venv\Scripts\python.exe manage.py startapp accounts
+```
+
+Then register `accounts` in `config/settings.py` under `INSTALLED_APPS`.
+
+### Expected result
+
+A new `accounts/` directory with `models.py`, `views.py`, `admin.py`, and other app scaffolding files. After adding models and running `makemigrations` + `migrate`, the `accounts_household` and `accounts_userprofile` tables should appear in the database.
+
+### Common problems
+
+- Forgetting to add the app to `INSTALLED_APPS` means Django will not detect the models or run their migrations.
+- The `UserProfile` model should use a `OneToOneField` to Django's `User`, not subclass it. Subclassing locks you into a specific auth model early; `OneToOneField` keeps the door open.

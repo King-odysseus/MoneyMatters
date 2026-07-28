@@ -8,8 +8,8 @@ dist/
 .env
 
 # Django
-backend/db.sqlite3
-backend/staticfiles/
+db.sqlite3
+staticfiles/
 *.log
 
 # Node

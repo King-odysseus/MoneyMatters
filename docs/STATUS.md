@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Foundation setup: install and verify Django 5.2 LTS and Django REST Framework 3.16.
+Core models: create the `accounts` app with Household and UserProfile models, then set up household-scoped middleware.
 
 ## Completed
 
@@ -13,17 +13,19 @@ Foundation setup: install and verify Django 5.2 LTS and Django REST Framework 3.
 - Created the living development and learning guide.
 - Verified Python 3.13.14 and pip 26.1.2 from Git Bash.
 - Created and activated `.venv`; the `python` command resolves inside the project environment.
+- Installed Django 5.2.16 and Django REST Framework 3.16.1 (`~=` bounded).
+- Ran `django-admin startproject config` to scaffold the project.
 
 ## Next action
 
-The learner runs the bounded framework installation command from Step 2 and shares the three verification outputs.
+Create the `accounts` Django app with the `Household` and `UserProfile` models, wire up the app in `INSTALLED_APPS`, run migrations, and verify the models register in the admin.
 
 ## Important state
 
-- The clean-restart deletions are not yet committed or pushed.
+- The clean-restart deletions and framework installation are not yet committed or pushed.
 - `docs/PRD.md` remains the living product requirements document.
 - Every future command and instruction must be recorded in `docs/LEARNING_GUIDE.md` before or as it is introduced.
 
 ## Blockers
 
-The legacy Python Launcher conflicts with Python Install Manager commands, but it does not block development because the Python 3.13 runtime has been verified directly.
+None.
