@@ -17,7 +17,9 @@ For every development step, record:
 
 MoneyMatters is a production-minded household finance application, not a simplified tutorial. The implementation should use sound architecture, security, tests, and maintainable code. Explanations will be beginner-accessible without reducing the product's quality.
 
-The learner should type important commands and implement focused pieces of code. AI may explain concepts, review work, provide hints, diagnose errors, and implement work when explicitly requested or when the learner is blocked.
+The learner should type important commands and implement focused pieces of code. AI may explain concepts, review work, provide feedback, diagnose errors, and implement work only when explicitly requested or when the learner is blocked.
+
+When explaining concepts, AI should identify recurring patterns, explain the why behind design decisions, and use analogies to ground abstract ideas in familiar territory. A good analogy makes the unfamiliar feel like a variation of something the learner already understands — it reduces cognitive load without dumbing down the material.
 
 Before a major feature:
 
