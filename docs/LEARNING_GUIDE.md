@@ -1,32 +1,6 @@
-# MoneyMatters Development and Learning Guide
+# MoneyMatters Chronological Learning Record
 
-This is the permanent step-by-step record for building MoneyMatters with Django and React. It is written so the setup and engineering decisions can be reused in future projects.
-
-For every development step, record:
-
-- **Goal:** the outcome we want.
-- **What:** what the command or code does.
-- **Why:** why the project needs it.
-- **When:** when this technique is useful.
-- **Command:** the exact command to run.
-- **Expected result:** how to know it worked.
-- **Common problems:** likely errors and how to investigate them.
-- **Verification:** the check performed before continuing.
-
-## Teaching agreement
-
-The authoritative teaching method is [TEACH.md](TEACH.md). Every agent must read it before teaching, proposing code, or asking the learner to run a command. Its section **The seven required teaching steps** lists the exact seven checks that must be completed for every meaningful code block.
-
-This learning guide is the chronological record: it keeps the seven-step explanations for individual code blocks, exact commands, learner modifications, answers, errors, and verification results. `TEACH.md` defines how those lessons must be taught, including the mandatory seven-step block method and learner-owned terminal practice.
-
-## Project foundation
-
-- Backend: Django and Django REST Framework
-- Frontend: React with TypeScript
-- Product model: users collaborate inside isolated households
-- Financial source of truth: an auditable transaction ledger
-- UI direction: the TijhaBooks midnight-navy and bronze design system
-- Product requirements: `docs/PRD.md`
+This file records lessons, questions, explanations, commands, errors, corrections, learner actions, and verification results in the order they occur. Permanent project context, technology choices, architecture, and teaching rules belong in [TEACH.md](TEACH.md); detailed product requirements belong in [PRD.md](PRD.md); changing implementation progress belongs in [STATUS.md](STATUS.md).
 
 ## Step 0: Clean restart
 
@@ -1449,3 +1423,491 @@ Read the dotted path `accounts.apps.AccountsConfig` from left to right: `account
 **Learner understanding check passed:** The learner correctly identified that `AccountsConfig` is located in the `accounts` folder inside `apps.py`. The filename is plural: `apps.py`. The learner is ready to resume verification of the `INSTALLED_APPS` change.
 
 **Learner-run settings syntax verification:** The learner ran `python -m py_compile config/settings.py` and reported that it passed with no output. This proves Python can parse the updated settings file without a syntax or indentation error. It does not prove that the dotted app path can be imported or that Django can load the models; the Django system check is required next.
+
+**Learner-run Django system check:** The learner ran `python manage.py check` and reported no issues. This proves Django could load `config/settings.py`, import `AccountsConfig`, discover `Household` and `UserProfile`, and accept the Pillow-backed `ImageField` without a detected system-check error. It does not create a migration, create database tables, or test the models' business behaviour.
+
+### Step 3G: Generate the initial accounts migration
+
+The registered models currently exist only as Python declarations. This block asks Django to translate their intended database structure into a reviewable migration file. It deliberately generates the plan without applying it to the database.
+
+#### 1. Purpose
+
+Create the first migration for `accounts`. A migration is version-controlled Python code describing how the database schema should change. It lets Django reproduce and track the `Household` and `UserProfile` tables consistently across development, testing, and deployment environments.
+
+#### 2. Location
+
+Django will create a numbered file inside `accounts/migrations/`, normally `0001_initial.py`. This is the schema-migration layer: it sits between model declarations and the physical database. It belongs with the app because it describes the database history of the `accounts` app.
+
+#### 3. Important execution path
+
+The generation path is `manage.py -> load registered apps and models -> read existing migration history -> compare model state with migration state -> build migration operations -> write accounts/migrations/0001_initial.py`. The later application path is separate: `migrate command -> read migration operations -> generate SQL -> change database schema`.
+
+#### 4. Main business rules
+
+- Generate a migration only after Django's system check passes.
+- Scope this command to `accounts` so the learning step remains focused.
+- Review the generated operations before applying them.
+- Commit migration files because they are shared project history, not disposable local output.
+- Do not edit the database manually to imitate the migration.
+- `makemigrations` creates a plan; `migrate` performs the plan. They must not be confused.
+
+#### 5. Common failure cases
+
+- An unregistered app can produce “No installed app with label” or no detected changes.
+- A model import or field error prevents migration generation.
+- Running `migrate` immediately without inspection can apply an unintended schema.
+- Deleting or casually editing migration files later can break environments that have already applied them.
+- Assuming the generated file proves the database changed confuses schema planning with schema execution.
+
+#### 6. Checks and later tests
+
+Expected output should identify `accounts/migrations/0001_initial.py` and list operations creating `Household` and `UserProfile`. After generation, inspect the entire migration, its dependency on Django's configured user model, every created field, relationship, option, and delete rule. Git's whitespace check and a second Django system check can verify file quality, but only the later `migrate` step and model tests will prove database execution and behaviour.
+
+#### 7. Learner terminal action
+
+From the MoneyMatters project root with `.venv` active, run:
+
+```powershell
+python manage.py makemigrations accounts
+```
+
+`python` selects the active project interpreter. `manage.py` loads MoneyMatters' Django settings. `makemigrations` compares registered model state with migration history and writes a migration plan. `accounts` limits generation to this app. This command changes the repository by creating a Python migration file, but it does not apply SQL or modify the database. Paste the complete output and do not run `migrate` yet.
+
+**Analogy:** The models are an architect's finished design. `makemigrations` turns the design into numbered construction instructions and files the blueprint with the project. `migrate` is the separate future step where builders follow those instructions and alter the building. We inspect the blueprint before calling the builders.
+
+**Learner-run migration generation:** The learner ran `python manage.py makemigrations accounts`. Django created `accounts/migrations/0001_initial.py` and reported two operations: create `Household` and create `UserProfile`. This is the expected initial schema plan. The command created a repository file but did not apply the plan to the database.
+
+#### Initial migration inspection
+
+Read-only inspection confirmed that the generated file:
+
+- is marked `initial = True`;
+- depends on `settings.AUTH_USER_MODEL` through `migrations.swappable_dependency`, ensuring the configured Django user table exists before `UserProfile` is created;
+- creates `Household` with its automatically generated primary key, name, currency, fiscal-year month, creation timestamp, and name ordering;
+- creates `UserProfile` with its generated primary key, descriptive-role choices and default, optional avatar reference, household foreign key, and user one-to-one relationship;
+- preserves both `CASCADE` deletion behaviours and the `members` and `profile` reverse names;
+- contains no Git-detected whitespace errors.
+
+The migration does not include a `UserProfile` ordering option because the current `accounts/models.py` does not define one. It also does not create a separate database field for the nested `Role` class: Django expands those choices into the `descriptive_role` field definition. No database table exists from this file until a later approved `migrate` command applies it.
+
+### Step 3H: Apply the initial accounts migration
+
+The initial migration has been generated and reviewed. This block applies that approved schema plan to the local development database.
+
+#### 1. Purpose
+
+Create the physical database tables represented by `Household` and `UserProfile`, including their columns, relationships, uniqueness rule, and deletion behaviour. Applying the migration also records `accounts.0001_initial` in Django's migration-history table so Django knows the schema step has been completed.
+
+#### 2. Location
+
+The migration source remains in `accounts/migrations/0001_initial.py`. The resulting schema and migration-history record belong to the configured local database, currently `db.sqlite3`. This is the database layer: unlike `makemigrations`, this step changes local database state rather than creating another source blueprint.
+
+#### 3. Important execution path
+
+The application path is `manage.py -> load config.settings -> connect to configured database -> migration executor reads accounts.0001_initial and its auth dependency -> generate database-specific SQL -> run operations in dependency order -> create accounts tables and constraints -> record migration as applied in django_migrations`.
+
+#### 4. Main business rules
+
+- Apply only a migration that has been generated, inspected, and accepted.
+- Use the project virtual environment and configured development database.
+- Scope this learning command to `accounts`; Django will still respect any required dependencies.
+- Do not manually edit an applied migration merely to change future schema; create a new migration for later model changes.
+- Treat migration output as evidence and record it before continuing.
+- Remember that database tables enable persistence but do not prove model business rules or access isolation.
+
+#### 5. Common failure cases
+
+- Running against the wrong settings or database can alter unintended data.
+- A locked SQLite database can prevent schema changes.
+- Inconsistent or manually edited migration history can cause dependency or “table already exists” errors.
+- Interrupting a migration can require careful investigation before retrying.
+- Assuming successful table creation means security and validation are tested would be unsafe.
+
+#### 6. Checks and later tests
+
+Expected output is `Applying accounts.0001_initial... OK`. Afterward, a learner-run migration-status command should show `[X] 0001_initial`, and `python manage.py check` should still report no issues. Later model tests must prove defaults, relationships, uniqueness, reverse names, choice display, and deletion behaviour. API tests will separately prove household isolation.
+
+#### 7. Learner terminal action
+
+From the MoneyMatters project root with `.venv` active, run:
+
+```powershell
+python manage.py migrate accounts
+```
+
+`python` selects the active interpreter. `manage.py` loads MoneyMatters settings. `migrate` executes database migration operations. `accounts` scopes the target to this app while Django preserves dependency order. This command changes the local `db.sqlite3` schema and migration-history rows; it does not edit model or migration source files. Paste the complete output and stop if any error appears.
+
+**Analogy:** `0001_initial.py` is the inspected construction blueprint. `migrate accounts` gives that blueprint to the builders, who construct the two database rooms and stamp the project ledger to show blueprint 0001 has been completed.
+
+**Learner-run migration result:** The learner ran `python manage.py migrate accounts`. Django reported `No migrations to apply` instead of applying `accounts.0001_initial`. This is not a command failure. It means the configured `db.sqlite3` migration-history table already records the migration name as applied, likely because the local database survived an earlier version of the accounts work while the source migration file was later removed and recreated.
+
+Do not delete the database, remove migration-history rows, use `--fake`, or edit the migration to force execution. First inspect the recorded state with `showmigrations`, then separately confirm that the expected physical tables exist. Migration history and database schema are related evidence but are not the same fact.
+
+#### Learner diagnostic: inspect accounts migration history
+
+From the MoneyMatters project root with `.venv` active, run:
+
+```powershell
+python manage.py showmigrations accounts
+```
+
+`showmigrations` reads Django's migration graph and the configured database's migration-history records without changing either one. `accounts` limits the display to this app. `[X] 0001_initial` means the database history marks it as applied; `[ ] 0001_initial` means it is known but unapplied. This command does not create, remove, or modify tables. Paste the complete output before any recovery decision is considered.
+
+**Learner-run migration-history result:** The learner ran `python manage.py showmigrations accounts` and received `[X] 0001_initial`. This confirms `db.sqlite3` contains an applied-migration record for `accounts.0001_initial`. It does not yet prove the `accounts_household` and `accounts_userprofile` tables exist or match the current model fields.
+
+#### Learner diagnostic: inspect physical database tables
+
+From the MoneyMatters project root with `.venv` active, run:
+
+```powershell
+python manage.py shell -c "from django.db import connection; print(connection.introspection.table_names())"
+```
+
+`shell` starts Django with the MoneyMatters settings and app registry loaded. `-c` runs the quoted Python statement and exits. `from django.db import connection` obtains Django's configured database connection. `connection.introspection.table_names()` asks the database for its table names, and `print(...)` displays them. “Introspection” means examining a system's structure without changing it. The command is read-only; it does not create, delete, or update tables or rows.
+
+The output should include `accounts_household` and `accounts_userprofile`. Paste the complete list. If either table is missing, stop; migration history and physical schema would be inconsistent and require a separate recovery plan.
+
+**Learner terminal correction:** The learner accidentally entered the previous output line, `[X] 0001_initial`, as a new PowerShell command. PowerShell returned a `ParserError` because migration-status output is not executable syntax. The error occurred before Python, Django, or SQLite ran, so it did not change project files, migration history, or database state. Output should be copied into the chat for review, not re-entered at the terminal prompt unless it is explicitly presented as a command.
+
+**Learner-run table introspection result:** The learner ran the Django table-introspection command. The output included both `accounts_household` and `accounts_userprofile`, together with Django's built-in auth, admin, content-type, migration, and session tables. This confirms the physical accounts tables exist. The message `8 objects imported automatically` is normal Django shell startup information and is not an error.
+
+Table presence alone does not prove that a retained table has the same columns as the recreated migration. Inspect the higher-risk `accounts_userprofile` table next:
+
+```powershell
+python manage.py shell -c "from django.db import connection; cursor = connection.cursor(); print([column.name for column in connection.introspection.get_table_description(cursor, 'accounts_userprofile')])"
+```
+
+`connection.cursor()` opens a database cursor, which is an object Django uses to communicate with the database. `get_table_description(...)` asks SQLite for the named table's column descriptions without changing it. The list comprehension `[column.name for column in ...]` extracts only each column name, and `print` displays the resulting list. This command is read-only.
+
+The expected profile columns are `id`, `descriptive_role`, `avatar`, `household_id`, and `user_id`. A missing or additional column would require investigation before model tests or further schema work.
+
+**Schema mismatch discovered:** Learner-run introspection returned `id`, `display_name`, `descriptive_role`, `permission_role`, `avatar_url`, `household_id`, and `user_id`. The retained table does not match the recreated `0001_initial.py`: it contains three columns from an older profile design and lacks the current `avatar` column. Django reports no pending migration because its history identifies migrations only by app label and migration name; the database already records `accounts.0001_initial`, even though the earlier file with that name described a different schema.
+
+Do not run model tests, create another automatic migration, delete the database, edit `django_migrations`, or use `--fake`. First determine whether the retained accounts and user tables contain data that must be preserved. A disposable empty development database can usually be rebuilt cleanly; a database containing learner or user data requires a preservation plan.
+
+From the MoneyMatters project root with `.venv` active, run this read-only count diagnostic:
+
+```powershell
+python manage.py shell -c "from accounts.models import Household, UserProfile; from django.contrib.auth import get_user_model; print({'households': Household.objects.count(), 'profiles': UserProfile.objects.count(), 'users': get_user_model().objects.count()})"
+```
+
+The imports load the two accounts models and Django's configured user model. Each `.objects.count()` asks the database for a row count without loading or changing the rows. The dictionary labels the three results. Because SQL `COUNT(*)` does not select every profile field, the missing `avatar` column should not prevent this diagnostic. If an error appears, paste it in full and stop. The counts determine whether a reset can even be considered; they do not authorize deletion.
+
+**Learner-run data count result:** The learner reported `households: 0`, `profiles: 0`, and `users: 1`. The stale accounts tables contain no rows, but the database is not entirely disposable because Django's auth table contains one user. A whole-database deletion would unnecessarily destroy that user. The repair must target only the empty accounts tables and preserve the auth tables.
+
+### Step 3I: Repair the empty stale accounts schema while preserving the user
+
+Read-only migration-file inspection found no other project migration depending on `accounts`. `db.sqlite3` is ignored by Git and is 147,456 bytes. The safe recovery is to create a recoverable copy of the database, reverse only the empty accounts migration, confirm the auth user remains, and reapply the reviewed current migration.
+
+#### 1. Purpose
+
+Replace the mismatched empty `accounts_household` and `accounts_userprofile` tables with tables built from the current reviewed `0001_initial.py`, while preserving the existing `auth_user` row and all unrelated Django tables.
+
+#### 2. Location
+
+All destructive schema work is limited to the configured local `db.sqlite3` and the two accounts tables recorded under `accounts.0001_initial`. A separate ignored backup file beside the database provides recovery. Model and migration source files are not rewritten during the database repair.
+
+#### 3. Important execution path
+
+The recovery path is `verify backup name is unused -> copy db.sqlite3 -> unapply accounts to zero -> Django drops only the empty accounts tables and removes their migration-history record -> confirm auth user remains -> apply current accounts.0001_initial -> inspect corrected columns -> run Django checks`.
+
+#### 4. Main business rules
+
+- Never begin the destructive unapply step without a verified database backup.
+- Proceed only because both accounts tables contain zero rows.
+- Preserve the existing auth user and all unrelated Django tables.
+- Do not delete the complete database, edit `django_migrations`, use `--fake`, or write manual SQL.
+- Stop immediately on any unexpected output or count.
+- Keep the backup until the rebuilt schema and preserved user are verified.
+
+#### 5. Common failure cases
+
+- Reusing a backup filename could overwrite the recovery copy.
+- Targeting the wrong database or app could destroy unrelated data.
+- A dependent migration could expand the unapply scope; repository inspection found none, but Django's printed plan must still be read before accepting the result.
+- A locked or interrupted SQLite operation can stop the repair.
+- Skipping the post-unapply user count could hide unintended auth data loss.
+
+#### 6. Checks and later tests
+
+Verify the backup exists and has a nonzero size before unapplying anything. Expected unapply output is `Unapplying accounts.0001_initial... OK`. Then confirm `users` remains 1 and the two accounts tables are absent. Expected reapply output is `Applying accounts.0001_initial... OK`. Finally confirm the corrected profile columns are `id`, `descriptive_role`, `avatar`, `household_id`, and `user_id` and rerun Django's system check.
+
+#### 7. Learner terminal action: verify a safe backup destination
+
+The first action is read-only. From the MoneyMatters project root, run:
+
+```powershell
+Test-Path -LiteralPath .\db.before-accounts-rebuild-20260815.sqlite3
+```
+
+`Test-Path` asks whether a filesystem item exists. `-LiteralPath` treats the exact supplied name without wildcard interpretation. `False` means the backup destination is unused and safe for the next copy step. `True` means stop and choose another name; do not overwrite it. This command changes nothing.
+
+**Analogy:** Two empty rooms were built from an outdated blueprint, while a valuable person remains elsewhere in the building. We first photocopy the building records, then demolish and rebuild only the two empty rooms. We do not demolish the whole building merely because those rooms are wrong.
+
+#### Learner question: Is this mismatch normal for a new Django app, or did it happen because an earlier AI-generated backend already existed?
+
+This is not normal for a genuinely new app using a clean database. In the normal path, Django generates `0001_initial.py`, applies that exact file once, and the migration history and physical tables match.
+
+Here, an earlier version of the backend had already applied a different `accounts.0001_initial` containing fields such as `display_name`, `permission_role`, and `avatar_url`. Later, the source app and migration were removed, reverted, or recreated during the guided reset, but the ignored local `db.sqlite3` survived. The recreated migration reused the same app label and migration name, so Django saw the old `(accounts, 0001_initial)` history record and assumed the new file had already run.
+
+The earlier AI-written schema contributed the old table design, but the underlying technical cause is persistent database state becoming inconsistent with rewritten migration-source history. Django cannot compare a previously applied migration file's old contents with a newly recreated file of the same name because its database history records the app and migration name, not a full copy of every operation. Preserving source migrations together with database history—or deliberately rebuilding a disposable development database during a reset—prevents this situation.
+
+**Learner-run backup-name check:** `Test-Path -LiteralPath .\db.before-accounts-rebuild-20260815.sqlite3` returned `False`. The proposed backup destination does not exist, so the next copy command will create a new recovery file rather than overwrite an earlier backup.
+
+From the MoneyMatters project root, create the backup:
+
+```powershell
+Copy-Item -LiteralPath .\db.sqlite3 -Destination .\db.before-accounts-rebuild-20260815.sqlite3 -ErrorAction Stop
+```
+
+`Copy-Item` copies a filesystem item. `-LiteralPath` identifies the exact source database without wildcard expansion. `-Destination` supplies the already-checked unused backup name. `-ErrorAction Stop` makes PowerShell stop immediately if copying fails instead of continuing after a non-terminating error. The command creates a separate backup file but does not modify the original database or its tables. Success normally produces no output; any error must be pasted in full and no recovery command should follow it.
+
+**Learner-run backup copy:** The learner ran the exact `Copy-Item` command and PowerShell returned to the prompt with no output, indicating that no copy error was reported. File existence alone is not enough for a destructive recovery checkpoint; compare cryptographic hashes to prove the backup contains the same bytes as the original database.
+
+```powershell
+Get-FileHash -Algorithm SHA256 .\db.sqlite3, .\db.before-accounts-rebuild-20260815.sqlite3 | Select-Object Path, Hash
+```
+
+`Get-FileHash` reads each file and calculates a fingerprint. `-Algorithm SHA256` selects a strong fingerprint algorithm. The comma supplies both exact file paths, the pipeline sends both results to `Select-Object`, and `Path, Hash` limits display to the identifying fields. The command is read-only. Both printed hashes must match exactly before unapplying the accounts migration; a missing file, error, or different hash means stop.
+
+#### AI-assisted recovery completed at the learner's request
+
+The learner explicitly asked the AI to complete the recovery so coding could continue. This is an allowed exception to learner-owned terminal practice; hands-on command ownership returns to the learner after the recovery.
+
+The first automated attempt verified the backup hash but stopped before any database change because the automation shell's plain `python` command was not using the activated project virtual environment and could not import Django. The stop condition worked correctly. The AI then validated and used the exact project interpreter at `.venv\Scripts\python.exe`.
+
+The completed recovery produced the following evidence:
+
+- The original database and backup had the same SHA-256 hash.
+- Pre-recovery counts were zero households, zero profiles, and one auth user.
+- `accounts.0001_initial` unapplied successfully.
+- Immediately afterward, no `accounts_*` tables remained and the auth user count was still one.
+- The reviewed current `accounts.0001_initial` reapplied successfully.
+- Post-rebuild counts remained zero households, zero profiles, and one auth user.
+- `accounts_userprofile` now contains exactly `id`, `descriptive_role`, `avatar`, `household_id`, and `user_id`.
+- `python manage.py check` reported `System check identified no issues (0 silenced).`
+
+The recovery backup `db.before-accounts-rebuild-20260815.sqlite3` remains available and should not be deleted until a later cleanup decision after additional model tests. The schema mismatch is resolved without losing the existing auth user.
+
+### Step 4A: Test Household default values
+
+The database schema now matches the current models. Begin behaviour testing with one focused rule: a household created without explicit currency or fiscal-year values should receive the model defaults.
+
+#### 1. Purpose
+
+Prove that `Household.base_currency` defaults to `"GBP"` and `Household.fiscal_year_start_month` defaults to `1`. These defaults are part of the product behaviour, so a future model edit should not change them silently.
+
+#### 2. Location
+
+The test belongs in `accounts/tests.py`, in the test layer of the `accounts` app. The model definition remains in `accounts/models.py`; the separate test file creates controlled examples and checks observable behaviour without adding production behaviour to the model itself.
+
+#### 3. Important execution and data path
+
+The path is `Django test runner -> create isolated test database -> apply migrations -> run test method -> Household.objects.create sends an INSERT -> omitted fields receive model defaults -> ORM returns Household object -> assertions compare actual values with expected rules -> test database is discarded`. The normal development database and its existing user are not used by `TestCase`.
+
+#### 4. Main business rules
+
+- A new household still requires a name.
+- Omitting `base_currency` should produce `"GBP"`.
+- Omitting `fiscal_year_start_month` should produce integer `1`.
+- Tests must be repeatable and independent of existing local rows.
+- This test checks defaults only; it does not prove currency-code validation or that the month is restricted to 1–12.
+
+#### 5. Common failure cases
+
+- A method not beginning with `test_` will not be discovered by Django's test runner.
+- Incorrect indentation can place the method outside the test class.
+- Forgetting to import `Household` causes a name error.
+- Comparing the month with string `"1"` instead of integer `1` tests the wrong type.
+- Using the normal database manually would make tests depend on local data; `TestCase` provides isolation.
+
+#### 6. What the test should prove
+
+The focused test should pass only when both defaults match. If either default changes, `assertEqual` should report the expected and actual values. A passing result proves object creation and these two defaults work in the migrated test database. It does not yet test `__str__`, ordering, timestamps, field validation, relationships, or deletion behaviour; those remain separate blocks.
+
+#### 7. AI implementation and learner review
+
+The learner has asked the AI to enter approved code rather than requiring copy-and-paste. The AI will replace the boilerplate in `accounts/tests.py` with this focused block after the seven-step explanation:
+
+```python
+from django.test import TestCase
+
+from .models import Household
+
+
+class HouseholdModelTests(TestCase):
+    def test_default_values(self):
+        household = Household.objects.create(name="Smith Household")
+
+        self.assertEqual(household.base_currency, "GBP")
+        self.assertEqual(household.fiscal_year_start_month, 1)
+```
+
+`from .models` uses a relative import: the leading dot means “from the current `accounts` package.” `HouseholdModelTests` groups tests for this model. Django discovers `test_default_values` because its name begins with `test_`. `objects.create` inserts one row into the isolated test database. Each `assertEqual` compares an actual value on the left with the expected business rule on the right.
+
+The AI will inspect and show the resulting block. The learner will retain hands-on terminal ownership by running the explained focused test command and reporting its output.
+
+**Analogy:** The model is a factory design. This test places one sample order without specifying currency or fiscal month, then checks whether the factory automatically attaches the correct `GBP` and January labels. Django conducts the inspection in a temporary workshop and clears it afterward.
+
+**Teaching preference update:** The learner requested that the AI enter code directly instead of asking the learner to copy and paste it. The mandatory seven-step explanation and learner review remain in place. The learner continues to run lesson-related terminal commands unless they explicitly request assistance.
+
+**Learner-run defaults test:** The learner ran `python manage.py test accounts.tests.HouseholdModelTests.test_default_values` and reported that it ran successfully with `OK`. This proves Django created an isolated migrated test database, inserted a household, and observed the expected `"GBP"` and integer `1` defaults. It does not test the learner's normal `db.sqlite3` or any other Household behaviour.
+
+### Step 4B: Test Household string representation
+
+#### 1. Purpose
+
+Prove that converting a `Household` object to text returns its real name. Readable object text improves Django admin choices, shell output, logs, and debugging compared with a generic value such as `Household object (1)`.
+
+#### 2. Location
+
+The test method belongs inside `HouseholdModelTests` in `accounts/tests.py`. It tests the `Household.__str__` production method in `accounts/models.py`; it does not add another model or database field.
+
+#### 3. Important execution and data path
+
+The path is `test creates Household -> test calls str(household) -> Python looks for household.__str__ -> __str__ returns self.name -> assertEqual compares returned text with the expected household name`.
+
+#### 4. Main business rules
+
+- The displayed text must be the household's actual name.
+- `__str__` must return a Python string.
+- Different household names should produce their corresponding text rather than a hardcoded label.
+- This representation improves readability but does not register the model in Django admin.
+
+#### 5. Common failure cases
+
+- Misspelling the special method prevents Python from calling it through `str()`.
+- Returning an ID or hardcoded label hides the meaningful household name.
+- Returning a non-string value raises a `TypeError` when Python requests text.
+- Testing only a generic object representation would fail to protect the product's readable naming rule.
+
+#### 6. What the test should prove
+
+The test should pass when `str(household)` equals `"Smith Household"` and fail if `__str__` stops returning `self.name`. It does not test alphabetical ordering, name validation, timestamps, relationships, or admin registration.
+
+#### 7. AI implementation and learner review
+
+With `accounts/tests.py` open and the learner's approval, the AI adds this focused method inside the existing `HouseholdModelTests` class:
+
+```python
+    def test_string_representation(self):
+        household = Household.objects.create(name="Smith Household")
+
+        self.assertEqual(str(household), "Smith Household")
+```
+
+The learner will review the resulting file and run the focused test command personally.
+
+**Analogy:** A database ID is like a warehouse serial number, while the household name is the label a person expects to read. `__str__` prints the useful label, and the test checks that the correct label remains attached.
+
+**Learner-run string-representation test:** The learner ran `python manage.py test accounts.tests.HouseholdModelTests.test_string_representation` and reported that it passed. This proves `str(household)` calls `Household.__str__` and returns the household's actual name in an isolated migrated test database. It does not test admin registration or other Household behaviour. This completes the final coding verification for the session.
+
+### Step 4C: Test the UserProfile default role
+
+#### 1. Purpose
+
+Prove that a new `UserProfile` receives the `SECONDARY` descriptive role when no role is supplied. This protects a deliberate product default from being changed accidentally.
+
+#### 2. Location
+
+The test belongs in `accounts/tests.py` in a new `UserProfileModelTests` class. It checks the default declared by the `UserProfile.descriptive_role` field in `accounts/models.py`.
+
+#### 3. Important execution and data path
+
+The path is `Django test runner -> isolated test database -> create Django user -> create Household -> create UserProfile linked to both -> model supplies the omitted role default -> assertion compares the stored value with UserProfile.Role.SECONDARY -> discard test database`.
+
+#### 4. Main business rules
+
+- Every profile must be linked to one Django user.
+- Every profile must belong to one household.
+- When `descriptive_role` is omitted, it must default to `SECONDARY`.
+- The test should use `UserProfile.Role.SECONDARY` rather than repeating the raw string so it refers to the model's named choice.
+- One user cannot have two profiles because the user relationship is one-to-one.
+
+#### 5. Common failure cases
+
+- Creating a profile without a user or household violates required relationships.
+- Importing Django's concrete `User` class directly can make the test incompatible with a future custom user model.
+- Reusing the same user for another profile would violate the one-to-one constraint.
+- Comparing against the human-readable label `"Secondary User"` would test the display label rather than the stored value `"SECONDARY"`.
+
+#### 6. What the test should prove
+
+A pass proves that Django can create the required related objects and that an omitted `descriptive_role` becomes `UserProfile.Role.SECONDARY` in the isolated test database. It does not prove the other role choices, display labels, reverse relationships, uniqueness error behaviour, or deletion rules.
+
+#### 7. AI implementation and learner review
+
+After the learner opens `accounts/tests.py`, the AI will add the required imports and this focused test class:
+
+```python
+class UserProfileModelTests(TestCase):
+    def test_default_role(self):
+        user = get_user_model().objects.create_user(username="alex")
+        household = Household.objects.create(name="Smith Household")
+        profile = UserProfile.objects.create(user=user, household=household)
+
+        self.assertEqual(profile.descriptive_role, UserProfile.Role.SECONDARY)
+```
+
+`get_user_model()` asks Django for the currently configured user model. `create_user` creates a valid test user. The household supplies the required parent relationship. The profile omits `descriptive_role` deliberately so the assertion can observe the default.
+
+The learner will review the resulting diff and personally run:
+
+```powershell
+python manage.py test accounts.tests.UserProfileModelTests.test_default_role
+```
+
+**Analogy:** Creating the profile is like submitting a membership form with the required person and household filled in but leaving the role box empty. The system should apply its agreed `SECONDARY` label automatically, and the test checks that label before discarding the temporary paperwork.
+
+**Learner-run default-role test:** The learner ran `python manage.py test accounts.tests.UserProfileModelTests.test_default_role`. Django found one test, created an isolated test database, reported no system-check issues, ran the test successfully, and destroyed the temporary database. The passing result proves that a profile linked to a valid user and household receives the stored role `UserProfile.Role.SECONDARY` when `descriptive_role` is omitted. It does not prove the other role choices, display labels, relationship constraints, reverse lookups, or deletion behaviour.
+
+### If I were writing the code myself, would I always need to write automated tests?
+
+No separate test is required for every line of code. Tests should protect meaningful behaviour: something the application promises to users or something that would cause a real problem if it broke.
+
+Important examples in MoneyMatters include:
+
+- a household defaults to the expected currency and fiscal-year month;
+- a profile defaults to the expected role;
+- one user cannot accidentally receive multiple profiles;
+- household relationships and deletion rules behave safely;
+- one household cannot access another household's financial data;
+- permissions prevent an unauthorised person from changing protected information;
+- financial calculations produce correct results.
+
+A simple import or assignment normally does not need its own test. It becomes covered naturally when a behaviour test executes the code that depends on it. Testing implementation details too narrowly can make tests noisy and fragile without protecting useful product behaviour.
+
+Use this practical rule:
+
+> If breaking the behaviour would affect users, money, permissions, saved data, security, or an explicit product requirement, protect it with an automated test.
+
+During development, run the smallest focused test that covers the block being changed. Focused feedback is faster and makes a failure easier to understand. For example:
+
+```powershell
+python manage.py test accounts.tests.UserProfileModelTests.test_default_role
+```
+
+Before committing or pushing, run the complete relevant app suite so nearby behaviour is checked as well:
+
+```powershell
+python manage.py test accounts
+```
+
+Larger projects may also run the complete project suite automatically in continuous integration after a push. A passing focused test proves only its stated behaviour; it never means the whole application is correct.
+
+Automated tests require a little extra work when a feature is written, but they become a repeatable safety net. Instead of manually checking the same rule after every future change, the computer can reproduce the setup, check the expected result, and report regressions consistently.
+
+**Analogy:** A test is like a reusable smoke alarm. It does not prove that every possible danger is absent, and a separate alarm is not installed beside every object. It is placed where an important risk needs dependable warning, then checked repeatedly as the building changes.
+
+**Learner-run accounts test suite:** The learner ran `python manage.py test accounts`. Django found three tests, created an isolated test database, reported no system-check issues, ran all three tests successfully, and destroyed the temporary database. This proves the two `Household` tests and the `UserProfile` default-role test pass together. It does not yet test profile relationships, uniqueness failures, deletion behaviour, API permissions, or household data isolation.
+
+### Documentation responsibility clarified
+
+The learner requested a clearer separation so future AI agents can be directed to one permanent onboarding document without treating the chronological lesson history as project policy.
+
+- `docs/TEACH.md` now owns stable project context, the technology stack, the architectural execution path, document responsibilities, and the mandatory teaching method.
+- `docs/LEARNING_GUIDE.md` now serves only as the chronological record of learning activity and outcomes.
+- `docs/PRD.md` continues to own detailed product requirements.
+- `docs/STATUS.md` continues to own the changing implementation state and next action.
+
+All historical learning entries were preserved during this housekeeping change; only the duplicated introductory policy and project-summary sections were replaced with a concise scope statement.
