@@ -34,3 +34,13 @@ class UserProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="members",
     )
+    descriptive_role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.SECONDARY,
+    )
+    avatar = models.ImageField(
+        upload_to="avatars/",
+        blank=True,
+        null=True,
+    )

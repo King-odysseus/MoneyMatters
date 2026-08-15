@@ -15,15 +15,20 @@ Core models: create the `accounts` app with Household and UserProfile models, th
 - Created and activated `.venv`; the `python` command resolves inside the project environment.
 - Installed Django 5.2.16 and Django REST Framework 3.16.1 (`~=` bounded).
 - Ran `django-admin startproject config` to scaffold the project.
+- Created the `accounts` Django app and implemented the `Household` model.
+- Added `UserProfile` relationships, descriptive financial-role choices, and an optional avatar field.
+- Installed Pillow 12.3.0 and recorded the backend dependencies in `requirements.txt`.
+- Created `docs/TEACH.md` as the mandatory seven-step, learner-led teaching contract.
 
 ## Next action
 
-Create the `accounts` Django app with the `Household` and `UserProfile` models, wire up the app in `INSTALLED_APPS`, run migrations, and verify the models register in the admin.
+Teach and register `accounts` in `INSTALLED_APPS`, then run Django's system check before proposing migrations or admin registration.
 
 ## Important state
 
-- The clean-restart deletions and framework installation are not yet committed or pushed.
+- The `accounts` model code exists, but the app is not yet registered in `INSTALLED_APPS` and no accounts migration has been created or applied.
 - `docs/PRD.md` remains the living product requirements document.
+- `docs/TEACH.md` is the authoritative teaching contract. Its seven-step block method and learner-owned terminal practice are mandatory.
 - Every future command and instruction must be recorded in `docs/LEARNING_GUIDE.md` before or as it is introduced.
 
 ## Blockers

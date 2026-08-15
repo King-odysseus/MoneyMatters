@@ -13,73 +13,11 @@ For every development step, record:
 - **Common problems:** likely errors and how to investigate them.
 - **Verification:** the check performed before continuing.
 
-## Working agreement
+## Teaching agreement
 
-MoneyMatters is a production-minded household finance application, not a simplified tutorial. The implementation should use sound architecture, security, tests, and maintainable code. Explanations will be beginner-accessible without reducing the product's quality.
+The authoritative teaching method is [TEACH.md](TEACH.md). Every agent must read it before teaching, proposing code, or asking the learner to run a command. Its section **The seven required teaching steps** lists the exact seven checks that must be completed for every meaningful code block.
 
-### The learner
-
-The learner is new to coding. They are learning Python, Django, the command line, and how to use an editor — all at the same time. Assume nothing is obvious.
-
-### Rules for teaching
-
-Every agent must follow these rules when guiding the learner:
-
-1. **Read the docs first.** Before doing anything else, read docs/PRD.md, docs/LEARNING_GUIDE.md, docs/STATUS.md, and recent Git history. This is the only way to know the current milestone, next action, and project conventions. Do not guess.
-
-2. **Explain before you ask.** Never present code or a command and expect the learner to type it without understanding it. Explain what it does, why it is needed, and how it works in plain language. Use analogies where they help. Only after the explanation is clear should the learner be asked to write or run anything.
-
-3. **Small, coherent chunks.** Do not dump large unexplained blocks of code, but do not force a one-line-at-a-time pace. Prefer roughly 4–10 related lines that form one understandable concept. Explain the complete block first, let the learner type it, and verify the block before continuing. Use a single-line step only when that line introduces a genuinely difficult or risky concept.
-
-4. **Tell them HOW to write it, not just WHAT to write.** Include practical editor instructions: which file to open, how to open it with an exact command or menu path, what to delete, where to paste, how to save. "Write this in models.py" is not enough — the learner may not know how to open models.py.
-
-5. **Every explanation goes into the learning guide.** Before asking the learner to write code, record the explanation in docs/LEARNING_GUIDE.md so future sessions have it. The guide is the project's permanent memory.
-
-6. **Explain, approve, implement, verify.** The AI first explains the proposed change using What, Why, How, and Analogy, then shows the exact code or commands it intends to use. The learner reviews the proposal and gives explicit approval before implementation. After approval, the AI implements the agreed change. The AI and learner then inspect verification results, debug problems together when necessary, and proceed only after the learner accepts the result. The learner may still choose to type a block personally when practising unfamiliar syntax would be valuable.
-
-7. **Never give a code-only instruction.** Before asking the learner to type any command, field, function, or block of code, explain all four parts below:
-
-   - **What:** what the new code represents or does.
-   - **Why:** why MoneyMatters needs it and what problem it prevents or solves.
-   - **How:** how Django, Python, the browser, or the database interprets it.
-   - **Analogy:** connect the idea to a familiar real-world object or process.
-
-   The explanation must appear in this guide before the learner is asked to type the code. A bare instruction such as "add this line" is incomplete even when the code itself is correct.
-
-8. **Build architectural understanding and active participation.** For each meaningful component or feature, guide the learner through seven checks at a beginner-accessible level:
-
-   1. Explain its purpose.
-   2. Identify where it belongs in the project and architectural layer.
-   3. Trace the important execution or data path.
-   4. Describe the main business rules.
-   5. Predict common failure cases.
-   6. Explain what the tests should prove and help the learner understand their results.
-   7. Give the learner one small, safe modification to make personally, then review it together.
-
-   Introduce infrastructure and architecture vocabulary gradually and define each term when first used. The goal is not only to finish MoneyMatters but to help the learner reason about unfamiliar full-stack systems.
-
-### What good looks like
-
-A teaching interaction should follow this rhythm:
-
-- AI explains one coherent concept (what + why + how + analogy).
-- AI records that explanation in the learning guide and shows the proposed code or commands.
-- The learner reviews the proposal and gives the go-ahead.
-- AI implements the approved change, unless the learner elects to type it for practice.
-- AI runs focused verification and explains the result.
-- The learner accepts the result or asks to debug or revise it.
-- Repeat only after acceptance.
-
-For each meaningful feature checkpoint, also use the seven architectural-understanding checks from Rule 8. Small syntax corrections do not require repeating the entire checklist, but their purpose and verification must still be explained.
-
-Before a major feature:
-
-1. Review the relevant PRD requirement.
-2. Explain the design and trade-offs.
-3. Divide the work into small, verifiable steps.
-4. Record commands and instructions in this guide.
-5. Implement and test one step at a time.
-6. Commit a coherent checkpoint.
+This learning guide is the chronological record: it keeps the seven-step explanations for individual code blocks, exact commands, learner modifications, answers, errors, and verification results. `TEACH.md` defines how those lessons must be taught, including the mandatory seven-step block method and learner-owned terminal practice.
 
 ## Project foundation
 
@@ -301,17 +239,18 @@ Do not create the Django project until installation output and installed version
 The repository—not chat memory—should be the durable source of truth. Keep these files current:
 
 - `docs/PRD.md`: what the product must do.
+- `docs/TEACH.md`: the mandatory teaching method, seven-step block workflow, and learner-owned terminal practice.
 - `docs/LEARNING_GUIDE.md`: commands, explanations, and lessons.
 - `docs/STATUS.md`: current milestone, completed work, next action, decisions, and blockers.
 - Git commits: exact, recoverable code checkpoints.
 
-At the end of a work session, update `docs/STATUS.md` and commit the coherent work. In a new chat, open the same MoneyMatters workspace and ask the assistant to read the PRD, learning guide, status file, and recent Git history before continuing.
+At the end of a work session, update `docs/STATUS.md` and commit the coherent work. In a new chat, open the same MoneyMatters workspace and ask the assistant to read the teaching contract, PRD, learning guide, status file, and recent Git history before continuing.
 
 A reusable new-chat prompt is:
 
 ```text
 Continue the MoneyMatters project. First read docs/PRD.md,
-docs/LEARNING_GUIDE.md, docs/STATUS.md, and the recent Git history.
+docs/TEACH.md, docs/LEARNING_GUIDE.md, docs/STATUS.md, and the recent Git history.
 Tell me the current milestone and next step before changing anything.
 Keep recording every command and instruction in docs/LEARNING_GUIDE.md.
 ```
@@ -1114,3 +1053,317 @@ The learner proposed this docstring:
 This correctly recognizes that a profile connects a user with household-related information. However, the word `role` can imply access control. In MoneyMatters, Primary User, Secondary User, and Joint are descriptive labels for display and financial attribution; Admin, Member, and Viewer will govern permissions separately. `UserProfile` will also hold household membership and an optional avatar, so its purpose is broader than one role label.
 
 A more accurate sentence should say that the profile stores MoneyMatters-specific information for a Django user, especially household membership and a descriptive financial label. Docstrings conventionally begin with a capital letter and describe what the class represents or does.
+
+#### Block-by-block lesson: add only the descriptive financial label
+
+This lesson deliberately separates `descriptive_role` from `avatar`. Complete and verify this field before introducing the image field.
+
+##### 1. Purpose
+
+The nested `Role` class defines the approved options, but it does not create a database column or remember which option a profile selected. The `descriptive_role` field creates that storage place on every `UserProfile` row. It records financial attribution such as Primary User, Secondary User, or Joint; it does not grant permissions.
+
+##### 2. Location
+
+This field belongs in the data-model layer inside `UserProfile` in `accounts/models.py`. Place it immediately below the `household` field and keep it indented by four spaces so Python treats it as part of the model.
+
+##### 3. Important execution and data path
+
+Later, a form or API will submit a database value such as `"PRIMARY"`. Django uses `Role.choices` while validating that input, the ORM writes the accepted text into the profile table, and `profile.get_descriptive_role_display()` can turn it back into the friendly label `"Primary User"` for a page. The path is `form or API -> choice validation -> UserProfile object -> database column -> display helper`.
+
+##### 4. Main business rules
+
+- A profile uses one of the three values defined by `Role`.
+- The stored value is the stable code, such as `"PRIMARY"`, rather than the display label.
+- A profile defaults to Secondary User when no choice is supplied.
+- The field describes financial attribution only. Permission roles such as Admin, Member, and Viewer remain separate.
+
+##### 5. Common failure cases
+
+- Treating this label as an authorization check could expose household data.
+- Typing a raw default string repeatedly would make spelling mistakes easier; `Role.SECONDARY` reuses the defined constant.
+- Omitting `choices=Role.choices` would prevent Django forms and serializers from automatically presenting and validating the approved options.
+- Assuming `choices` protects every database write would be unsafe. Django choice validation occurs through validation paths such as forms, serializers, or `full_clean()`; a careless direct save can bypass it.
+
+##### 6. Tests to understand
+
+Later model tests should prove that the default is `Role.SECONDARY`, each approved value can be selected, the display helper returns the friendly label, and the application's validation path rejects an unsupported value. These tests protect the distinction between descriptive labels and permissions.
+
+##### 7. Learner modification
+
+From the MoneyMatters project terminal, run:
+
+```powershell
+code accounts/models.py
+```
+
+This asks Visual Studio Code to open the existing model file; it does not execute or change the Python code. If the file is already open, select its tab instead. Find the closing line of the `household` field. Directly below it, add this block with four spaces before `descriptive_role`:
+
+```python
+    descriptive_role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.SECONDARY,
+    )
+```
+
+Save the file with `Ctrl+S`, but do not add the avatar yet. We will inspect this block, explain each argument, and run a focused syntax check before moving forward.
+
+**Analogy:** `Role` is the sheet of approved stickers. `descriptive_role` is the labelled space on each household membership card where exactly one of those stickers is placed. The sticker changes how the card is described, not which locked doors its owner may open.
+
+##### Verification checkpoint
+
+The learner added the `descriptive_role` block in the correct location and with the intended indentation and arguments. Running `python -m py_compile accounts/models.py` completed successfully, which proves Python can parse the file without a syntax or indentation error.
+
+This focused check does not yet prove that Django can discover the model, create its database column, or enforce the expected validation path. Those behaviours require registering `accounts` in `INSTALLED_APPS`, creating a migration, and running model tests in later approved steps. The current block is accepted at the syntax level; the avatar remains unimplemented.
+
+**Learner understanding check:** The learner correctly identified that no database structure has been created. One wording correction is important: `py_compile` proves that Python can parse the module without syntax errors; it does not prove that Django can discover or validate the model. Django-level checks begin after the app is registered and loaded.
+
+**Teaching-process correction:** The AI ran the first `py_compile` verification instead of asking the learner to run it. That reduced the learner's hands-on terminal practice. From this checkpoint onward, the learner should personally run important development and verification commands after they have been explained, unless the learner explicitly asks the AI to run one or is blocked by an error. The AI should review and explain the learner's output rather than silently performing the command first.
+
+To repeat this check personally, use the terminal opened at the MoneyMatters project root and run:
+
+```powershell
+python -m py_compile accounts/models.py
+```
+
+`python` starts the active Python interpreter. `-m py_compile` asks Python to run its built-in compilation checker as a module. `accounts/models.py` is the file to parse. A successful check normally returns to the prompt without printing anything; an error would show a traceback and the affected line. This command does not run Django, create a database table, or change the source file.
+
+**Learner-run verification:** The learner personally ran `python -m py_compile accounts/models.py`. The command returned to the prompt with no output, confirming that the updated model file has valid Python syntax and indentation. This replaces observation-only verification with hands-on terminal practice; Django discovery and database creation remain untested.
+
+#### Block-by-block lesson: add the optional avatar reference
+
+This lesson covers only the avatar model field. Media settings, upload security, and dependency installation remain separate blocks that must be explained and approved later.
+
+##### 1. Purpose
+
+The avatar field gives a profile an optional picture. The database stores a reference such as `avatars/alice.jpg`; the storage system holds the image bytes themselves. A profile must still work when no picture is supplied.
+
+##### 2. Location
+
+The field belongs in the data-model layer inside `UserProfile` in `accounts/models.py`, immediately below `descriptive_role`. It belongs on the profile because the image describes a person rather than the whole household.
+
+##### 3. Important execution and data path
+
+Later, the browser will send an image as multipart form data. Django's upload handling receives the file, `ImageField` uses Pillow when image validation runs, the configured storage backend saves it under `avatars/`, and the database stores the resulting relative path. A response can later turn that reference into an image URL. The path is `browser upload -> Django upload handling -> image validation -> media storage -> database path -> displayed URL`.
+
+##### 4. Main business rules
+
+- The avatar is optional; lack of a picture must not prevent profile creation.
+- The database stores a path or storage key, not the image bytes.
+- Files belong under the `avatars/` storage prefix.
+- File type, size, safe naming, access, replacement, and deletion policies must be defined before production uploads are enabled.
+- An avatar never changes a user's permissions or household membership.
+
+##### 5. Common failure cases
+
+- Django's `ImageField` needs the Pillow package for image support. Pillow is not currently installed in the active environment, so full Django validation would fail until a later dependency step is approved.
+- Missing `MEDIA_ROOT` or `MEDIA_URL` settings can prevent local saving or display.
+- Trusting a filename or extension without validating the actual image content can be unsafe.
+- Replacing or deleting a profile may leave an unused file in storage unless cleanup behaviour is designed.
+- Assuming `blank=True` and `null=True` mean the same thing is incorrect: `blank` controls form/model validation while `null` controls database storage.
+
+##### 6. Tests to understand
+
+Later tests should prove that a profile can exist without an avatar, a valid small image is saved under the expected storage prefix, invalid image content is rejected by the application's validation path, and tests use temporary media storage rather than real user folders. Replacement and deletion behaviour also need tests once their policy is chosen.
+
+##### 7. Learner modification
+
+In the already-open `accounts/models.py`, place the following line directly below the closing parenthesis of `descriptive_role`, aligned with that field:
+
+```python
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+```
+
+Save with `Ctrl+S`. This step declares the field only; it does not install Pillow, configure media storage, create a migration, or upload a file. We will first inspect the line and repeat the focused syntax check.
+
+**Analogy:** The database is a library catalogue. The avatar field is the catalogue entry saying which shelf holds a photograph; the actual photograph remains on the storage shelf. `blank=True` allows a membership form with no photograph attached, while `null=True` allows the catalogue entry itself to say that no photograph has been filed.
+
+##### Avatar formatting inspection and Python formatter question
+
+The learner added the avatar block in the correct location with the intended arguments. A read-only Git inspection found that the final blank line contains four spaces and the file still does not end with a newline. This is not a Python syntax error, but it is undesirable invisible whitespace that formatters and Git checks are designed to catch.
+
+Python has automatic formatters comparable to Prettier in frontend development. Black is a well-known dedicated Python formatter. Ruff includes a Black-compatible formatter as well as a Python linter, making it a good candidate for MoneyMatters. Installing and configuring Ruff will be taught later as its own seven-step block; it should not be introduced silently during the avatar lesson.
+
+For the immediate hands-on correction, place the cursor on the blank line after the avatar field, remove its four spaces so the cursor is at column one, and save. The file should end after the newline that follows the closing parenthesis, without an extra whitespace-filled line.
+
+From the MoneyMatters project root, run:
+
+```powershell
+git diff --check -- accounts/models.py
+```
+
+`git diff` examines uncommitted changes. `--check` reports trailing whitespace and missing-newline problems instead of changing the file. The second `--` separates Git options from the file path, and `accounts/models.py` limits the check to the model file. This is a read-only command: it does not format, stage, commit, or otherwise modify the file. Success normally produces no output; a remaining problem prints the file and line number.
+
+**Learner-run whitespace verification:** The learner removed the whitespace-only final line and ran `git diff --check -- accounts/models.py`. The command returned with no output, proving that Git found no whitespace errors in the uncommitted `accounts/models.py` diff. This check does not validate Python syntax or Django model behaviour; those require separate checks.
+
+**Learner-run avatar syntax verification:** The learner ran `python -m py_compile accounts/models.py` after adding the avatar field. The command returned with no output, proving that Python can parse the complete file without syntax or indentation errors. The command may create ignored bytecode under `accounts/__pycache__/`, but it does not run Django, validate Pillow support, register the app, create a migration, or change the database. The `descriptive_role` and `avatar` blocks are accepted at the Python-syntax level.
+
+### Step 3C: Check the Pillow image dependency
+
+Treat dependency readiness as its own block before registering `accounts` with Django.
+
+#### 1. Purpose
+
+`models.ImageField` relies on the Pillow library for Python image support. Declaring `ImageField` is valid Python without Pillow, which is why `py_compile` passed, but Django's model checks will report that image support is unavailable when the registered app is loaded unless Pillow is installed.
+
+#### 2. Location
+
+Pillow belongs in the project's Python virtual environment, alongside Django and Django REST Framework. It is an environment dependency rather than a line imported directly into `accounts/models.py`. A later dependency-manifest block must also record it so another computer can reproduce the environment.
+
+#### 3. Important execution path
+
+The path is `ImageField declared -> accounts app loaded by Django -> Django system check examines the field -> Pillow supplies image support -> later upload validation can inspect image data`. The first diagnostic step asks the same Python interpreter used for the project whether its package installer knows about Pillow.
+
+#### 4. Main business rules
+
+- Inspect the active project interpreter before installing anything.
+- Use `python -m pip` so `pip` belongs to the same Python interpreter that will run Django.
+- Record runtime dependencies in a reproducible project manifest rather than relying permanently on one computer's environment.
+- Installing Pillow enables image support but does not by itself make uploads secure; file-size, content, storage, and access rules remain separate work.
+
+#### 5. Common failure cases
+
+- A standalone `pip` command may target a different Python installation.
+- An inactive virtual environment may cause the package to be inspected or installed globally.
+- A package can be installed but omitted from the project manifest, causing another computer or deployment to fail.
+- Successful installation does not configure `MEDIA_ROOT`, `MEDIA_URL`, or production storage.
+
+#### 6. Checks and later tests
+
+`python -m pip show Pillow` is a read-only environment check. If installed, it prints package metadata including its version and location. If absent, it normally prints a warning that the package was not found. Later, after an approved installation and app registration, `python manage.py check` should confirm Django can load `ImageField`; upload tests will separately prove real validation and storage behaviour.
+
+#### 7. Learner terminal action
+
+From the MoneyMatters project root, with the project virtual environment active, run:
+
+```powershell
+python -m pip show Pillow
+```
+
+`python` selects the active interpreter, `-m pip` runs that interpreter's package manager, `show` requests installed-package information without changing anything, and `Pillow` is the package being inspected. Report the exact output. Do not install anything yet; installation and dependency recording require their own explanation and approval.
+
+**Analogy:** `ImageField` is a camera workstation specified on a blueprint, while Pillow is the image technician needed to operate it. The Python syntax check confirms the blueprint is readable; `pip show` checks whether the technician is actually present in this project's workshop.
+
+**Learner-run dependency check:** The learner ran `python -m pip show Pillow` from the project environment and reported that Pillow was not found. This proves the active interpreter does not currently have the image library required by Django's `ImageField`. No package or project file was changed by the diagnostic command.
+
+### Step 3D: Install the bounded Pillow dependency
+
+The official Django 5.2 field reference states that `ImageField` requires Pillow. PyPI lists Pillow 12.3.0 as the current release on 15 August 2026 and states that it requires Python 3.10 or newer, which is compatible with this project's Python 3.13 environment. Official references: `https://docs.djangoproject.com/en/5.2/ref/models/fields/#imagefield` and `https://pypi.org/project/pillow/`.
+
+#### 1. Purpose
+
+Install the image-processing library Django needs to load and validate `ImageField`. This closes the dependency gap discovered by the learner's `pip show` check; it does not yet configure media storage or create a database column.
+
+#### 2. Location
+
+Pillow belongs in the active MoneyMatters virtual environment. It is a runtime dependency used by the backend. The installation changes that environment, not `accounts/models.py`. A following block must record all backend dependencies in a project manifest for reproducibility.
+
+#### 3. Important execution path
+
+The command path is `active project Python -> that interpreter's pip -> Python Package Index -> compatible Pillow distribution -> project virtual environment`. Later the application path becomes `Django loads ImageField -> Pillow is importable -> Django system check passes the image-library requirement -> upload validation can inspect image content`.
+
+#### 4. Main business rules
+
+- Use the active project Python rather than an unrelated global interpreter.
+- Use the compatible-release constraint `Pillow~=12.3.0`, allowing maintenance releases in the 12.3 series without silently moving to a new feature series.
+- Treat Pillow as a backend runtime dependency and record it in the dependency manifest in the next approved block.
+- Installing Pillow does not replace upload size, type, storage, or authorization rules.
+
+#### 5. Common failure cases
+
+- An inactive virtual environment can install Pillow into the wrong location.
+- Network or package-index errors can interrupt the download.
+- A platform without a compatible prebuilt wheel may attempt a source build and require system libraries.
+- Seeing a successful install but failing to record the dependency can make another machine fail later.
+
+#### 6. Checks and later tests
+
+The installation output should report a successful Pillow installation. A learner-run `python -m pip show Pillow` check afterward should display its version and location. Later `python manage.py check`, after `accounts` is registered, will prove Django can load the image field without its missing-Pillow error. Upload tests remain separate.
+
+#### 7. Learner terminal action
+
+From the MoneyMatters project root with the project virtual environment active, run:
+
+```powershell
+python -m pip install "Pillow~=12.3.0"
+```
+
+`python` selects the active interpreter. `-m pip` uses that interpreter's package manager. `install` changes the active environment by adding a package. `"Pillow~=12.3.0"` requests Pillow 12.3.0 or a compatible maintenance release below 12.4. The command may download files and update pip's local cache; it does not edit project source code, create migrations, or change the database. Report the complete final success line or the complete error output.
+
+**Analogy:** The project workshop has specified an image station but discovered that its technician is absent. The bounded installation hires a technician trained for the approved 12.3 toolset; the following manifest step will add that role to the official staffing list so another workshop knows whom to hire.
+
+**Learner-run installation verification:** The learner ran `python -m pip show Pillow` after installation. It reported Pillow 12.3.0 at `C:\Users\Mega-Mind\Documents\WebDev Projects\MoneyMatters\.venv\Lib\site-packages`, proving the approved version is installed inside the MoneyMatters virtual environment rather than an unrelated global interpreter. `Required-by` was empty; this does not indicate a problem because Django checks for Pillow when using `ImageField` rather than installing it as an unconditional Django dependency. The environment is ready for Django's image-library check, but the dependency still needs to be recorded in a project manifest.
+
+### Step 3E: Record backend dependencies in requirements.txt
+
+The pip documentation describes a requirements file as a list of items for `pip install`; `requirements.txt` is the conventional filename. MoneyMatters currently has no dependency manifest, so another computer cannot reliably recreate the Django, DRF, and Pillow environment from the repository alone. Official reference: `https://pip.pypa.io/en/stable/reference/requirements-file-format/`.
+
+#### 1. Purpose
+
+Create a readable project file listing the backend packages MoneyMatters directly depends on. The virtual environment answers “what is installed on this computer”; `requirements.txt` answers “what should be installed for this project.”
+
+#### 2. Location
+
+Place `requirements.txt` at the repository root beside `manage.py`. It belongs to project/dependency configuration rather than the Django `config` package or an individual app because it describes the backend environment required by the whole project.
+
+#### 3. Important execution path
+
+On a new computer, the path will be `clone repository -> create and activate virtual environment -> pip reads requirements.txt -> pip resolves allowed package versions -> packages are installed -> Django project can start`. Pip treats each non-comment line as a requirement specifier.
+
+#### 4. Main business rules
+
+- List direct runtime dependencies intentionally rather than copying every unrelated package from the computer.
+- Use compatible-release bounds matching the versions already selected for the project.
+- Keep package names and version constraints free of shell quotes inside the file.
+- Update the manifest whenever a new runtime dependency is approved.
+- Never place passwords, tokens, or machine-specific virtual-environment paths in the file.
+
+#### 5. Common failure cases
+
+- Forgetting Pillow would make `ImageField` fail on another machine.
+- Writing only unbounded package names could allow an unexpected future feature or major release.
+- Using `pip freeze` without review can capture unrelated or transitive environment details that obscure the project's direct dependencies.
+- Saving the file inside `.venv` would keep it out of the project and Git history.
+- Adding shell quotation marks inside the file can make the requirement specifiers incorrect.
+
+#### 6. Checks and later tests
+
+First inspect the saved file and use Git's whitespace check. A later learner-run pip command can read the manifest and confirm the active environment satisfies it. Ultimately, a clean virtual environment or CI job should install from the file and run Django checks and tests; that is the strongest reproducibility test.
+
+#### 7. Learner modification
+
+From the MoneyMatters project root, run:
+
+```powershell
+code requirements.txt
+```
+
+This asks Visual Studio Code to open a root-level file named `requirements.txt`. Because it does not exist yet, the file is created only when saved. Add exactly these three direct dependencies:
+
+```text
+Django~=5.2.0
+djangorestframework~=3.16.0
+Pillow~=12.3.0
+```
+
+Save with `Ctrl+S`. Do not run an installation command from the file yet; the AI will first inspect the filename, location, content, and final newline.
+
+**Analogy:** The virtual environment is the food already present in one kitchen. `requirements.txt` is the recipe's ingredient list. A recipe should name the ingredients the meal depends on, not blindly inventory every object found in the kitchen cupboards.
+
+#### Learner question: how were the Django and DRF versions known, and can pip populate the file?
+
+The proposed Django and Django REST Framework ranges came from the earlier learner-run installation recorded in this guide: `Django~=5.2.0` and `djangorestframework~=3.16.0`. The status record later reported installed maintenance versions Django 5.2.16 and DRF 3.16.1. Historical documentation is useful, but the active virtual environment should be inspected before creating its manifest.
+
+Pip can produce an automatic installed-package list. The official pip user guide documents `python -m pip freeze > requirements.txt` as a way to create a requirements file for repeatable installs. The `>` PowerShell redirection writes the command's output into the named file and overwrites an existing file, so it must not be used casually. `pip freeze` also lists resolved transitive dependencies such as packages Django needs internally, not only the three packages MoneyMatters chose directly.
+
+Before choosing between an exact frozen environment and a shorter direct-dependency manifest, display the automatic list without redirecting it:
+
+```powershell
+python -m pip freeze
+```
+
+Run this from the MoneyMatters project root with `.venv` active. `python` selects the active interpreter, `-m pip` runs that interpreter's package manager, and `freeze` prints installed packages in requirement-file syntax. Without `> requirements.txt`, this command is read-only: it prints to the terminal and does not create or overwrite a file. The learner should paste the complete output so each direct and transitive dependency can be identified before the manifest strategy is approved.
+
+**Analogy:** `pip freeze` photographs every labelled ingredient currently in the kitchen, including ingredients brought in automatically by other ingredients. A hand-written direct-dependency file is the recipe's shopping list. Both are useful, but they answer different questions.
+
+**Learner-created frozen manifest:** The learner used the automatic freeze approach before the Git checkpoint. `requirements.txt` now records the exact active environment: `asgiref==3.12.1`, `Django==5.2.16`, `djangorestframework==3.16.1`, `pillow==12.3.0`, `sqlparse==0.5.5`, and `tzdata==2026.3`. Django, DRF, and Pillow are the direct project dependencies; asgiref, sqlparse, and tzdata are resolved supporting dependencies. This exact manifest favours repeatable installation. Future dependency upgrades must deliberately regenerate and review the frozen versions rather than editing the environment without updating the file.
