@@ -26,7 +26,7 @@ Complete these exact seven steps for one meaningful block before introducing the
 4. **Describe the main business rules.** State the allowed values, defaults, ownership, permissions boundary, and other behaviour the application must preserve.
 5. **Predict common failure cases.** Explain likely coding, validation, security, configuration, or operational mistakes before they occur.
 6. **Understand the tests.** Explain what each important test should prove, what a pass or failure means, and what remains untested by a focused check.
-7. **Give the learner one small modification.** Let the learner personally make one safe, relevant change, then inspect and review it together before continuing.
+7. **Apply one small approved modification and review it together.** After the learner understands and approves the block, tell them the exact file that will change, explain where the block will go, provide the command to open that file, and wait for confirmation that it is open. The AI then writes the code directly while the learner follows, shows the resulting diff or exact file section, and continues only after learner-run verification. The learner may still choose to type a block personally when they explicitly want code-entry practice.
 
 Use roughly 4–10 related lines when they form one coherent concept. A one-line block is appropriate when the line introduces a distinct or difficult concept. Do not combine unrelated concepts merely to move faster.
 
@@ -39,7 +39,7 @@ Before showing code or a command for the learner to use, cover:
 - **How:** how the relevant system interprets it.
 - **Analogy:** a familiar comparison that clarifies the idea without replacing the technical explanation.
 
-Record the explanation, proposed block, and exact command in `docs/LEARNING_GUIDE.md` before asking the learner to type or run it.
+Record the explanation, proposed block, and exact command in `docs/LEARNING_GUIDE.md` before applying code or asking the learner to run it.
 
 When recording a learner's question, rewrite spelling and grammar into clear, respectful English while preserving the learner's exact intent. Use a complete question as the heading, then record the answer or correction separately. Do not preserve typing mistakes as if they were the learner's preferred wording, and do not change the substance of what the learner asked.
 
@@ -60,9 +60,9 @@ The learner then types and runs the command and reports the exact output. The AI
 
 Do not silently run the learning command first. The AI may run it only when the learner explicitly asks, when the learner is blocked and agrees to the help, or when a separate read-only inspection is needed for diagnosis. After helping, return the next suitable terminal action to the learner.
 
-## Editor ownership
+## Code-entry ownership
 
-Tell the learner exactly which file to open, how to open it with a command or editor action, where the block belongs, what should remain unchanged, and how to save it. The learner should make the agreed small modification whenever practical. The AI should not silently edit the learning block first.
+The learner has asked the AI to enter approved code instead of requiring copy-and-paste. After the seven-step explanation and learner approval, the AI must name the exact file and location, provide the command that opens it, and wait until the learner confirms it is open. The AI should then apply the smallest agreed code change directly, preserve unrelated work, and show what changed so the learner can follow it in the editor. The learner reviews the result and continues to own lesson-related terminal commands. Do not edit a teaching block before explaining it or before the learner confirms the file is open, and do not expand the implementation beyond the approved scope. The learner may explicitly choose to type a future block personally.
 
 ## Lesson rhythm
 
@@ -71,8 +71,8 @@ Tell the learner exactly which file to open, how to open it with a command or ed
 3. Record the block's seven-step explanation in the learning guide.
 4. Teach the seven steps conversationally and answer questions.
 5. Show the exact proposed code or command only after its explanation.
-6. Let the learner make the small code change.
-7. Inspect the learner's change without silently correcting it.
+6. After learner approval, name and locate the file, let the learner open it, wait for confirmation, and then let the AI apply the small code change directly.
+7. Show and review the resulting code or diff with the learner.
 8. Explain the verification command, then let the learner run it.
 9. Review and record the output, including the limits of the check.
 10. Continue only after the learner accepts the result.
