@@ -17,9 +17,60 @@ For every development step, record:
 
 MoneyMatters is a production-minded household finance application, not a simplified tutorial. The implementation should use sound architecture, security, tests, and maintainable code. Explanations will be beginner-accessible without reducing the product's quality.
 
-The learner should type important commands and implement focused pieces of code. AI may explain concepts, review work, provide feedback, diagnose errors, and implement work only when explicitly requested or when the learner is blocked.
+### The learner
 
-When explaining concepts, AI should identify recurring patterns, explain the why behind design decisions, and use analogies to ground abstract ideas in familiar territory. A good analogy makes the unfamiliar feel like a variation of something the learner already understands — it reduces cognitive load without dumbing down the material.
+The learner is new to coding. They are learning Python, Django, the command line, and how to use an editor — all at the same time. Assume nothing is obvious.
+
+### Rules for teaching
+
+Every agent must follow these rules when guiding the learner:
+
+1. **Read the docs first.** Before doing anything else, read docs/PRD.md, docs/LEARNING_GUIDE.md, docs/STATUS.md, and recent Git history. This is the only way to know the current milestone, next action, and project conventions. Do not guess.
+
+2. **Explain before you ask.** Never present code or a command and expect the learner to type it without understanding it. Explain what it does, why it is needed, and how it works in plain language. Use analogies where they help. Only after the explanation is clear should the learner be asked to write or run anything.
+
+3. **Small, coherent chunks.** Do not dump large unexplained blocks of code, but do not force a one-line-at-a-time pace. Prefer roughly 4–10 related lines that form one understandable concept. Explain the complete block first, let the learner type it, and verify the block before continuing. Use a single-line step only when that line introduces a genuinely difficult or risky concept.
+
+4. **Tell them HOW to write it, not just WHAT to write.** Include practical editor instructions: which file to open, how to open it with an exact command or menu path, what to delete, where to paste, how to save. "Write this in models.py" is not enough — the learner may not know how to open models.py.
+
+5. **Every explanation goes into the learning guide.** Before asking the learner to write code, record the explanation in docs/LEARNING_GUIDE.md so future sessions have it. The guide is the project's permanent memory.
+
+6. **Explain, approve, implement, verify.** The AI first explains the proposed change using What, Why, How, and Analogy, then shows the exact code or commands it intends to use. The learner reviews the proposal and gives explicit approval before implementation. After approval, the AI implements the agreed change. The AI and learner then inspect verification results, debug problems together when necessary, and proceed only after the learner accepts the result. The learner may still choose to type a block personally when practising unfamiliar syntax would be valuable.
+
+7. **Never give a code-only instruction.** Before asking the learner to type any command, field, function, or block of code, explain all four parts below:
+
+   - **What:** what the new code represents or does.
+   - **Why:** why MoneyMatters needs it and what problem it prevents or solves.
+   - **How:** how Django, Python, the browser, or the database interprets it.
+   - **Analogy:** connect the idea to a familiar real-world object or process.
+
+   The explanation must appear in this guide before the learner is asked to type the code. A bare instruction such as "add this line" is incomplete even when the code itself is correct.
+
+8. **Build architectural understanding and active participation.** For each meaningful component or feature, guide the learner through seven checks at a beginner-accessible level:
+
+   1. Explain its purpose.
+   2. Identify where it belongs in the project and architectural layer.
+   3. Trace the important execution or data path.
+   4. Describe the main business rules.
+   5. Predict common failure cases.
+   6. Explain what the tests should prove and help the learner understand their results.
+   7. Give the learner one small, safe modification to make personally, then review it together.
+
+   Introduce infrastructure and architecture vocabulary gradually and define each term when first used. The goal is not only to finish MoneyMatters but to help the learner reason about unfamiliar full-stack systems.
+
+### What good looks like
+
+A teaching interaction should follow this rhythm:
+
+- AI explains one coherent concept (what + why + how + analogy).
+- AI records that explanation in the learning guide and shows the proposed code or commands.
+- The learner reviews the proposal and gives the go-ahead.
+- AI implements the approved change, unless the learner elects to type it for practice.
+- AI runs focused verification and explains the result.
+- The learner accepts the result or asks to debug or revise it.
+- Repeat only after acceptance.
+
+For each meaningful feature checkpoint, also use the seven architectural-understanding checks from Rule 8. Small syntax corrections do not require repeating the entire checklist, but their purpose and verification must still be explained.
 
 Before a major feature:
 
@@ -342,3 +393,724 @@ A new `accounts/` directory with `models.py`, `views.py`, `admin.py`, and other 
 
 - Forgetting to add the app to `INSTALLED_APPS` means Django will not detect the models or run their migrations.
 - The `UserProfile` model should use a `OneToOneField` to Django's `User`, not subclass it. Subclassing locks you into a specific auth model early; `OneToOneField` keeps the door open.
+## Step 3: Create the accounts app and core models
+
+### Goal
+
+Create the first Django app (`accounts`) containing the `Household` and `UserProfile` models — the multi-tenancy foundation that every other module depends on.
+
+### What
+
+A Django app is a self-contained Python package with models, views, and URL configuration. `accounts` will hold:
+
+- `Household`: the top-level container for all financial data. Every user belongs to exactly one household, and every model inherits a `household` foreign key for data isolation.
+- `UserProfile`: extends Django`'`s built-in `User` model with a `household` foreign key, a descriptive role label (Primary User, Secondary User, Joint), and an optional avatar.
+
+### Why
+
+Authentication and household membership are the first P0 module in the PRD. Without a user model linked to a household, no other module can scope its queries correctly. Building this first establishes the multi-tenancy pattern that every subsequent viewset will follow.
+
+### When
+
+Create `accounts` immediately after the project scaffold exists, before any financial models.
+
+---
+
+### Step 3A: Start the accounts app
+
+**Command:**
+
+```powershell
+python manage.py startapp accounts
+```
+
+**What this does:** `startapp` is a Django management command that generates a directory with boilerplate files: `models.py`, `views.py`, `admin.py`, `apps.py`, `tests.py`, and a `migrations/` folder. It is the standard way to create a new app inside a Django project.
+
+**Analogy:** If the Django project (`config`) is the building, `startapp` is the command that rooms off a new wing. The wing comes with empty walls (the boilerplate files), and you decide what goes in them.
+
+**Why not just make the folder by hand?** You could, but `startapp` also creates `apps.py` with a properly named `AppConfig` class — this is what Django uses to discover and register the app. Getting the naming right by hand is fiddly and error-prone.
+
+---
+
+### Step 3B: Write the models
+
+The code goes in `accounts/models.py`. Replace the entire file with the following, then we will walk through every line.
+
+```python
+from django.conf import settings
+from django.db import models
+
+
+class Household(models.Model):
+    """Top-level container for all financial data. Every model in the project
+    carries a foreign key back to this table so data stays isolated per household."""
+
+    name = models.CharField(max_length=100)
+    base_currency = models.CharField(max_length=3, default="GBP")
+    fiscal_year_start_month = models.PositiveSmallIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class UserProfile(models.Model):
+    """Extends Django`'`s built-in User model with household membership and a
+    descriptive role label. Linked via OneToOneField, not subclassing."""
+
+    class Role(models.TextChoices):
+        PRIMARY = "PRIMARY", "Primary User"
+        SECONDARY = "SECONDARY", "Secondary User"
+        JOINT = "JOINT", "Joint"
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile"
+    )
+    household = models.ForeignKey(
+        Household, on_delete=models.CASCADE, related_name="members"
+    )
+    descriptive_role = models.CharField(
+        max_length=20, choices=Role.choices, default=Role.SECONDARY
+    )
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+
+    class Meta:
+        ordering = ["user__username"]
+
+    def __str__(self):
+        return f"{self.user.username} ({self.get_descriptive_role_display()})"
+```
+
+---
+
+### Household model — line by line
+
+```python
+from django.conf import settings
+from django.db import models
+```
+
+`settings` gives us access to `AUTH_USER_MODEL` — the configured user model Django is using. We import it here rather than hardcoding `auth.User` because the project might swap user models later. `models` is Django`'`s ORM module; every field type (`CharField`, `ForeignKey`, etc.) lives there.
+
+```python
+class Household(models.Model):
+```
+
+Every Django model inherits from `models.Model`. Under the hood, this gives the class a metaclass that scans the attributes, maps Python types to SQL column types, and generates the `CREATE TABLE` statement for you.
+
+```python
+name = models.CharField(max_length=100)
+```
+
+A short text column for the household name. `max_length=100` is required for `CharField` — Django needs to know the column size to generate the correct `VARCHAR` type.
+
+```python
+base_currency = models.CharField(max_length=3, default="GBP")
+```
+
+The ISO 4217 currency code for the household`'`s default currency. Three characters covers all standard currency codes (GBP, USD, NGN, KES, EUR). A `default` means new households start as GBP unless the user picks something else.
+
+```python
+fiscal_year_start_month = models.PositiveSmallIntegerField(default=1)
+```
+
+Which month the household`'`s fiscal year starts. Default is 1 (January). `PositiveSmallIntegerField` stores a number from 0 to 32,767 — more than enough for months 1-12, and it takes less space than a regular integer.
+
+```python
+created_at = models.DateTimeField(auto_now_add=True)
+```
+
+A timestamp set automatically when the row is first created. `auto_now_add=True` means Django sets this once on `INSERT` and never touches it again. This is the analogue of the "Created" column you`'`d add to a spreadsheet — automatic, forgettable, and useful when debugging.
+
+```python
+class Meta:
+    ordering = ["name"]
+```
+
+The `Meta` inner class holds model-level configuration that is not a database field. `ordering = ["name"]` tells Django to sort query results alphabetically by household name by default. Without it, the database returns rows in whatever physical order it finds them.
+
+```python
+def __str__(self):
+    return self.name
+```
+
+Controls how the object appears in the Django admin, shell, and debug output. Without `__str__`, you would see `Household object (1)` instead of an actual name — unreadable and frustrating.
+
+---
+
+### UserProfile model — line by line
+
+```python
+class Role(models.TextChoices):
+    PRIMARY = "PRIMARY", "Primary User"
+    SECONDARY = "SECONDARY", "Secondary User"
+    JOINT = "JOINT", "Joint"
+```
+
+A `TextChoices` class is Django`'`s modern way to define a fixed set of allowed values for a field. Each entry is `(DB_VALUE, HUMAN_LABEL)`. The database stores `"PRIMARY"`; the admin shows `"Primary User"`. `TextChoices` also auto-generates helper methods — for example `UserProfile.Role.choices` returns the list of tuples Django fields expect.
+
+**Important:** These roles are descriptive labels for display and transaction attribution. They do not govern access control. Permission roles (Admin, Member, Viewer) are a separate system using Django`'`s built-in permissions, added later.
+
+```python
+user = models.OneToOneField(
+    settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile"
+)
+```
+
+This is the link to Django`'`s built-in `User` model. Breaking it down:
+
+- `OneToOneField` means each `User` gets exactly one `UserProfile` and each `UserProfile` points to exactly one `User`. Under the hood, Django creates a `UNIQUE` constraint on the `user_id` column.
+- `settings.AUTH_USER_MODEL` resolves to whatever user model the project is configured to use (by default `auth.User`). We never hardcode `User` because a future migration to a custom user model would break every import.
+- `on_delete=models.CASCADE` means if the `User` is deleted, the `UserProfile` is deleted too. A profile without a user is meaningless.
+- `related_name="profile"` lets you access the profile from the user side: `user.profile` instead of the default `user.userprofile`. More readable, and it matches the mental model: a user *has a* profile.
+
+**Analogy:** Think of Django`'`s `User` as a passport — it proves who you are. `UserProfile` is the visa page stamped inside it — it adds details about where you belong (your household) without changing the passport itself.
+
+```python
+household = models.ForeignKey(
+    Household, on_delete=models.CASCADE, related_name="members"
+)
+```
+
+- `ForeignKey` creates a many-to-one relationship: many `UserProfile` rows can point to the same `Household`.
+- `on_delete=models.CASCADE` means deleting a `Household` deletes all its members`'` profiles. This is intentional — a household`'`s data is meaningless without the household.
+- `related_name="members"` lets you call `household.members.all()` to get every user in that household.
+
+```python
+descriptive_role = models.CharField(
+    max_length=20, choices=Role.choices, default=Role.SECONDARY
+)
+```
+
+A `CharField` with `choices` renders as a dropdown in the Django admin and forms. The database stores the short code (`"PRIMARY"`), but anywhere you call `.get_descriptive_role_display()` you get the human label (`"Primary User"`). Django auto-generates that method for any field with `choices`.
+
+```python
+avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+```
+
+An optional profile picture. `upload_to="avatars/"` tells Django to store uploaded files in `MEDIA_ROOT/avatars/`. `blank=True` means the field is optional in forms; `null=True` means the database column allows `NULL`. Both are needed for an optional `ImageField` — `blank` covers validation, `null` covers the database.
+
+```python
+class Meta:
+    ordering = ["user__username"]
+```
+
+Sort profiles by their linked user`'`s username. The double underscore `user__username` is Django`'`s syntax for following a relationship in a query — it means "the username field on the related User row." This is the same syntax used in queryset `.filter()` and `.order_by()` calls.
+
+```python
+def __str__(self):
+    return f"{self.user.username} ({self.get_descriptive_role_display()})"
+```
+
+Produces a readable representation like `"alice (Primary User)"`. `get_descriptive_role_display()` is the auto-generated method mentioned above — Django creates it for any field with `choices`.
+
+---
+
+### Step 3C: Register the app in settings
+
+Open `config/settings.py` and find the `INSTALLED_APPS` list. Add `"accounts"` to the end (or right after the `django.contrib.*` entries — position does not matter for our app):
+
+```python
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "accounts",  # <-- add this line
+]
+```
+
+**What this does:** `INSTALLED_APPS` is Django`'`s registry. Adding `"accounts"` tells Django to:
+
+1. Look for `accounts/apps.py` and load the `AppConfig`.
+2. Scan `accounts/models.py` for model classes.
+3. Make those models available for migrations, queries, and admin registration.
+
+**Why a string and not an import?** `"accounts"` is the shorthand. Django resolves it to `accounts.apps.AccountsConfig` automatically. For more complex configurations you can use the full dotted path (`"accounts.apps.AccountsConfig"`), but the shorthand works fine here.
+
+**Analogy:** `INSTALLED_APPS` is like telling the building manager which rooms exist. If a room is not on the list, the manager pretends it does not exist — no lights, no heating, no access.
+
+---
+
+### Step 3D: Make and run migrations
+
+**Commands:**
+
+```powershell
+python manage.py makemigrations accounts
+python manage.py migrate
+```
+
+**What `makemigrations` does:** Django scans your `models.py`, compares it to the last migration file in `accounts/migrations/`, and generates a new migration file describing the differences. This file is a Python script with an ordered list of operations — it is essentially a recipe for transforming the database schema. You can read it: it says things like "create table X with columns A, B, C."
+
+**Why `accounts` is specified:** You can run `makemigrations` without an app name and it scans everything. Specifying `accounts` is just faster and more focused — fewer things to check for changes.
+
+**What `migrate` does:** Reads the migration files and executes them against the actual database. If a migration has already been applied, Django skips it (it tracks applied migrations in a `django_migrations` table). If the migration is new, Django runs the SQL and records that it ran.
+
+**Analogy:** `makemigrations` is writing the blueprint. `migrate` is handing it to the builders and watching them pour concrete.
+
+**What you should see:** After `makemigrations`, a new file appears in `accounts/migrations/0001_initial.py`. After `migrate`, output lines like `Applying accounts.0001_initial... OK`.
+
+---
+
+### Step 3E: Register models in the admin
+
+Open `accounts/admin.py` and replace it with:
+
+```python
+from django.contrib import admin
+
+from .models import Household, UserProfile
+
+
+@admin.register(Household)
+class HouseholdAdmin(admin.ModelAdmin):
+    list_display = ["name", "base_currency", "fiscal_year_start_month", "created_at"]
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ["user", "household", "descriptive_role"]
+    list_filter = ["household", "descriptive_role"]
+    search_fields = ["user__username", "user__email"]
+```
+
+**What `@admin.register(Household)` does:** This is a decorator — syntactic sugar that replaces calling `admin.site.register(Household, HouseholdAdmin)` at the bottom of the file. Both forms do the same thing: they tell the Django admin "here is a model and here is how to display it."
+
+**`list_display`:** Controls which columns appear in the admin list view. Without it, Django shows only `__str__`, which means one column. With `list_display`, you get a table with sortable headers for each field listed.
+
+**`list_filter`:** Adds a sidebar filter panel in the admin. For `UserProfile`, filtering by `household` and `descriptive_role` lets an admin quickly find "all Primary Users in the Smith household."
+
+**`search_fields`:** Adds a search box. `user__username` and `user__email` let the admin search by login name or email address. The double underscore follows the relationship to the `User` model — same syntax as in querysets.
+
+**Analogy:** If the Django admin is a filing cabinet with folders (models) and sheets of paper (rows), `list_display` chooses which columns are printed on each sheet, `list_filter` adds colour-coded tabs, and `search_fields` is the index at the front.
+
+---
+
+### Expected result
+
+After completing all five sub-steps:
+
+- `accounts/migrations/0001_initial.py` exists and describes the two tables.
+- `python manage.py showmigrations` shows `[X]` next to `accounts.0001_initial`.
+- Running `python manage.py createsuperuser` and logging into `/admin/` shows `Households` and `User profiles` sections.
+
+### Common problems
+
+- Forgetting to add `"accounts"` to `INSTALLED_APPS` means `makemigrations` will not detect the models. Django will silently ignore them.
+- Using `from django.contrib.auth.models import User` instead of `settings.AUTH_USER_MODEL` works initially but breaks if the project ever switches to a custom user model. Always use the setting.
+- The `UserProfile` model should use a `OneToOneField` to Django`'`s `User`, not subclass it. Subclassing locks you into a specific auth model early; `OneToOneField` keeps the door open.
+- If `makemigrations` says "No changes detected," double-check that `accounts` is in `INSTALLED_APPS` and that the `accounts` directory has an `__init__.py` (it does — `startapp` creates one).
+
+---
+
+### What comes next
+
+After the models are built and verified, the next step is household-scoped middleware. Every request that comes in from an authenticated user will have `request.household` stamped on it. Every viewset will scope its queryset by `request.household`. This single pattern — middleware stamps the household, viewsets filter by it — is the safety net that keeps every household`'`s data private.
+### How to edit the file (practical steps)
+
+You are editing from Git Bash inside VS Code. Two ways to open the file:
+
+**Option A — VS Code (recommended):**
+```bash
+code accounts/models.py
+```
+If `code` is not in your PATH, VS Code can install it: open VS Code, press `Ctrl+Shift+P`, type "Shell Command: Install 'code' command in PATH", and select it. Then close and reopen your terminal.
+
+**Option B — Notepad (fallback):**
+```bash
+notepad accounts/models.py
+```
+
+Once the file is open:
+1. Select everything with `Ctrl+A`.
+2. Press `Delete` (or `Backspace`) — the file should now be completely empty.
+3. Paste the full model code from the section above.
+4. Save with `Ctrl+S`.
+5. Close the editor.
+
+---
+
+### Step 3B: Write the models
+
+---
+
+### Step 3B: Write the models — imports
+
+Start with an empty `accounts/models.py`. Replace everything with these two lines:
+
+```python
+from django.conf import settings
+from django.db import models
+```
+
+**Line-by-line explanation:**
+
+**`from django.conf import settings`** — Django has a central settings object that holds every configuration value: the database connection, installed apps, the user model being used, secret keys. Importing `settings` gives your code access to all of that. We need it because later we will use `settings.AUTH_USER_MODEL` to link our `UserProfile` to whatever user model Django is configured to use. We never hardcode `auth.User` because if the project ever swaps to a custom user model, every hardcoded import would break. Instead, we always read the setting and let Django resolve the correct model at runtime.
+
+**Analogy:** `settings` is like the control panel on a washing machine. Your code does not need to know whether the machine is set to cotton or delicates — it just reads the dial and adapts.
+
+**`from django.db import models`** — This imports Django`'`s ORM (Object-Relational Mapper) module. Every field type you will use — `CharField`, `ForeignKey`, `DateTimeField`, `OneToOneField` — lives inside `models`. When you write `models.CharField(...)`, you are telling Django "I want a text column in the database." Django translates that Python class into the correct SQL column type (`VARCHAR`, `INTEGER`, `TIMESTAMP`, etc.) depending on which database engine you are using (SQLite for development, PostgreSQL for production).
+
+**Analogy:** `models` is a universal remote. You press the same button (`CharField`) and Django figures out whether it needs to send an infrared signal to PostgreSQL, SQLite, or MySQL.
+
+**Verification:** After saving these two lines, there should be no errors. You cannot test imports in isolation yet — they will be exercised when we write the model classes next and run `makemigrations`.
+
+### Step 3B: Add the household fiscal-year starting month
+
+The `Household` model already has its `name` and `base_currency` fields. The next field records which month begins that household's financial year.
+
+**What:** `fiscal_year_start_month` stores a month number. For example, `1` means January and `4` means April.
+
+**Why:** Not every household organizes its financial records from January to December. MoneyMatters will eventually use this value when it groups transactions, creates yearly ledger views, and calculates reports. Storing the choice on the household also prevents us from hardcoding January throughout the application.
+
+**How:** `models.PositiveSmallIntegerField` tells Django to create a database column for a small, non-negative whole number. `default=1` means Django uses January when a new household is created without an explicitly selected starting month. A later validation step must restrict accepted values to the real month range of 1 through 12, because the field type alone also accepts other non-negative numbers.
+
+**Analogy:** A school can begin its academic year in September even though the calendar begins in January. In the same way, this field is the household's bookmark showing where its financial year begins.
+
+**Learner action:** In `accounts/models.py`, type this directly beneath `base_currency`:
+
+```python
+    fiscal_year_start_month = models.PositiveSmallIntegerField(default=1)
+```
+
+Save the file with `Ctrl+S`. We will inspect the saved result before adding the next field.
+
+### Step 3B verification: Keep related model fields together
+
+The `fiscal_year_start_month` field was added correctly. Inspection found extra blank lines containing spaces between `base_currency` and `fiscal_year_start_month`, plus another blank line after it.
+
+**What:** Blank lines visually separate sections of code. Inside this short group of database fields, the fields should remain together with no blank lines between them.
+
+**Why:** Consistent spacing makes the model easy to scan and keeps Git diffs focused on meaningful changes. Spaces on otherwise empty lines are invisible in the editor, but formatting tools and code review checks can still detect them as trailing whitespace.
+
+**How:** Python normally ignores blank lines inside a class, so this is not a syntax error. We remove them as a readability and maintenance improvement before adding another field.
+
+**Analogy:** These fields are items in one short shopping list. Empty rows between every item do not change the list, but they make it unnecessarily harder to scan.
+
+**Learner action:** Remove the blank lines around `fiscal_year_start_month` so the three fields appear on consecutive lines. Do not remove their four-space indentation.
+
+### Step 3B verification: Remove trailing whitespace
+
+The three `Household` fields are now together correctly, and Python successfully compiles the file. One small formatting issue remains: the `fiscal_year_start_month` line has three invisible spaces after the closing parenthesis.
+
+**What:** Trailing whitespace is spaces or tabs left after the final visible character on a line.
+
+**Why:** Python accepts it, so this is not a syntax error. Removing it keeps the source clean and prevents formatting checks and Git diffs from flagging an otherwise meaningless change.
+
+**How:** Put the cursor immediately after the final `)` on the `fiscal_year_start_month` line, press `Delete` until there is nothing after it, and save the file. Do not remove the four spaces before the field name; those are required indentation.
+
+**Analogy:** It is like erasing pencil marks beyond the edge of a form: the form still works, but the clean edge makes later review easier.
+
+**Learner action:** Remove only the three spaces after the final `)` on the `fiscal_year_start_month` line, then save with `Ctrl+S`. We will verify the cleanup before adding `created_at`.
+
+### Step 3B: Add the household creation timestamp
+
+The spacing cleanup is complete and `accounts/models.py` compiles successfully. The final database field on `Household` records when each household row is first created.
+
+**What:** `created_at` stores a date and time for the moment Django inserts a new household into the database.
+
+**Why:** Creation timestamps are useful for auditing, debugging, onboarding reports, and understanding the age of a household account. Django fills this value automatically, so users do not type or maintain it.
+
+**How:** `models.DateTimeField` creates a date-and-time column. The option `auto_now_add=True` tells Django to set the value once when the object is first saved. Later edits do not change it. This differs from `auto_now=True`, which updates the timestamp on every save and is normally used for a field such as `updated_at`.
+
+**Analogy:** It works like the original issue date printed on a passport. Changing the address associated with the passport later does not rewrite the date on which it was first issued.
+
+**Learner action:** In `accounts/models.py`, add this directly beneath `fiscal_year_start_month`, keeping the same four-space indentation:
+
+```python
+    created_at = models.DateTimeField(auto_now_add=True)
+```
+
+Save with `Ctrl+S`. We will inspect the result before adding model metadata or methods.
+
+### Step 3B verification: Space around the assignment operator
+
+The `created_at` field was added with valid Python syntax, and the file compiles. Its current form, `created_at =models.DateTimeField(...)`, is missing the conventional space after the assignment operator.
+
+**What:** The equals sign in this class body assigns the Django field object on the right to the model attribute named `created_at` on the left.
+
+**Why:** Python permits uneven spacing here, but standard Python style uses one space on each side of `=` for an assignment. Consistent spacing makes code easier to scan and prevents automated formatters or code-quality checks from producing avoidable changes later.
+
+**How:** Change `=models` to `= models`. This spacing rule applies to assignment statements. It does not apply in the same way to keyword arguments such as `auto_now_add=True`, where Python style deliberately uses no spaces around the equals sign.
+
+**Analogy:** An assignment is like a label connected to a box. Leaving equal space on both sides of the connector makes the relationship easy to see; keyword arguments are compact settings printed inside the box.
+
+**Learner action:** On the `created_at` line in `accounts/models.py`, insert one space between `=` and `models`. The completed line should be:
+
+```python
+    created_at = models.DateTimeField(auto_now_add=True)
+```
+
+Save with `Ctrl+S`. We will verify the formatting before moving to the model's `Meta` class.
+
+### Step 3B: Finish the `Household` model with metadata and a readable name
+
+The learner requested a faster pace, so related code will now be taught in coherent blocks rather than one line at a time. This block corrects the `created_at` spacing and completes `Household` with its default ordering and string representation.
+
+**What:** The `Meta` inner class configures model behaviour that is not stored as a database field. `ordering = ["name"]` makes household query results alphabetical by default. The `__str__` method tells Python and Django to represent a household using its actual name.
+
+**Why:** Predictable ordering keeps lists stable across the admin, shell, and future API queries. A readable string prevents Django from displaying vague labels such as `Household object (1)` in dropdowns, logs, and the admin interface.
+
+**How:** Django discovers the specially named `Meta` class when it builds the model. The list `[`"name"`]` tells the ORM to add an ascending `ORDER BY name` unless a query requests another order. Python calls the specially named `__str__` method whenever code converts a `Household` object to text; returning `self.name` reads the `name` field from that particular household instance. Both `Meta` and `__str__` remain indented inside `Household`, while their contents receive one additional indentation level.
+
+**Analogy:** Think of `Household` as a set of contact cards. `Meta.ordering` tells the filing cabinet to arrange the cards alphabetically, while `__str__` tells it to print the household name on each tab instead of an internal card number.
+
+**Learner action:** In `accounts/models.py`, correct the `created_at` line and add the following block directly beneath the four field lines. Keep four spaces before `class Meta` and `def __str__`, and eight spaces inside each one:
+
+```python
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+```
+
+Replace the existing `created_at =models...` line rather than adding a second `created_at` field. Save with `Ctrl+S`; then the whole `Household` model will be checked as one unit.
+
+### Step 3B: Start `UserProfile` and define descriptive roles
+
+The `Household` model now compiles as a complete unit. The next coherent block starts the profile that will extend Django's authentication user and defines the labels MoneyMatters uses to attribute financial activity.
+
+**What:** `UserProfile` is a separate Django model for MoneyMatters-specific user information. Its nested `Role` class defines three allowed text choices: Primary User, Secondary User, and Joint. Each choice contains a database value such as `"PRIMARY"` and a human-readable label such as `"Primary User"`.
+
+**Why:** Django's built-in user already handles identity, passwords, and authentication. Keeping household membership and finance-specific labels in `UserProfile` avoids duplicating or prematurely replacing that secure authentication model. Fixed choices also prevent inconsistent data such as `primary`, `Primary`, and `main user` representing the same concept. These labels describe display and transaction attribution only; Admin, Member, and Viewer permissions will be implemented separately.
+
+**How:** Like every Django model, `UserProfile` inherits from `models.Model`. `models.TextChoices` converts the constants in `Role` into a reusable choices collection. Django will later use `Role.choices` to validate a model field and render a dropdown. The first string in each tuple is stored in the database; the second is shown to people. Nesting `Role` inside `UserProfile` keeps the choices grouped with the model that owns them.
+
+**Analogy:** Django's built-in user is a person's passport: it establishes identity. `UserProfile` is the household membership card attached to that passport. The `Role` choices are the preprinted labels available on the card, preventing everyone from inventing a different title.
+
+**Learner action:** At the bottom of `accounts/models.py`, leave two blank lines after `return self.name`, then add this block:
+
+```python
+class UserProfile(models.Model):
+    """Adds household membership and financial attribution to a Django user."""
+
+    class Role(models.TextChoices):
+        PRIMARY = "PRIMARY", "Primary User"
+        SECONDARY = "SECONDARY", "Secondary User"
+        JOINT = "JOINT", "Joint"
+```
+
+Save with `Ctrl+S`. We will verify the class and choices together before adding the relationship fields.
+
+#### Clarification: Read `TextChoices` as a controlled dropdown
+
+This block combines several unfamiliar Python ideas, so pause before typing it. The simplest mental model is a form dropdown whose options are defined once and reused everywhere.
+
+Start with one entry:
+
+```python
+PRIMARY = "PRIMARY", "Primary User"
+```
+
+Read it from left to right:
+
+- `PRIMARY` is the Python name developers use in code, such as `UserProfile.Role.PRIMARY`.
+- The first `"PRIMARY"` is the compact value saved in the database.
+- `"Primary User"` is the friendly label displayed to a person in a dropdown or admin page.
+
+The other two lines follow exactly the same pattern. `Role` is placed inside `UserProfile` because these choices belong specifically to user profiles. It acts like a small labelled box kept inside the larger profile box; it is not another database table.
+
+For example, if Alice is selected as Primary User, the page shows `Primary User`, the database stores `PRIMARY`, and Python code can compare the value with `UserProfile.Role.PRIMARY`. These three forms refer to the same choice but serve different audiences: person, database, and developer.
+
+The words Primary, Secondary, and Joint do not control access. They only describe whose finances a record belongs to. Permission levels such as Admin, Member, and Viewer remain a separate feature.
+
+#### Line-by-line explanation of the implemented `UserProfile` role block
+
+```python
+class UserProfile(models.Model):
+```
+
+`class` tells Python to define a new type of object. `UserProfile` is the name chosen for that type. The parentheses mean it inherits capabilities from `models.Model`; Django therefore recognizes it as a database model and will eventually create a table for it through migrations. This line defines the model but does not create an individual user profile yet. Individual rows will be instances of the model.
+
+```python
+    """Adds household membership and financial attribution to a Django user."""
+```
+
+This is a docstring: documentation stored inside the class. Python and developer tools can inspect it, but Django does not turn it into a database column. It explains the class's responsibility to future readers.
+
+```python
+    class Role(models.TextChoices):
+```
+
+This defines a second, smaller class named `Role` inside `UserProfile`. It is nested because the choices belong specifically to profiles. It inherits from Django's `TextChoices`, which knows how to turn the following constants into values suitable for a text-field dropdown and validation. `Role` is not a model and will not receive its own database table.
+
+```python
+        PRIMARY = "PRIMARY", "Primary User"
+```
+
+`PRIMARY` is the constant name used by Python code. The right side is a two-item tuple: `"PRIMARY"` is the stable value stored in the database, and `"Primary User"` is the friendly label displayed to people. Code can later use `UserProfile.Role.PRIMARY` instead of repeatedly typing a raw string, reducing spelling mistakes.
+
+```python
+        SECONDARY = "SECONDARY", "Secondary User"
+        JOINT = "JOINT", "Joint"
+```
+
+These repeat the same pattern for the other allowed labels. Together, the three lines allow Django to generate `Role.choices`, which a later `CharField` will use. Defining choices alone does not yet add a role column; that field is the next separate concept.
+
+**Whole-block analogy:** `UserProfile` is a blank membership-card design. The docstring is a note explaining what the card is for. `Role` is the approved list of stickers that may be placed on the card. The three constants define each sticker's inventory code and printed label. We have designed the card and its allowed stickers, but we have not yet printed a card for anyone or added the place where the sticker is attached.
+
+### Step 3B: Connect each profile to a user and household
+
+The `UserProfile` and `Role` block now compiles successfully. The next proposed block adds the two relationships that give a profile its identity and household membership. It must be reviewed and approved before the AI implements it.
+
+**What:** `user` creates a one-to-one relationship between a `UserProfile` and Django's authentication user. `household` creates a many-to-one relationship: each profile belongs to one household, while one household can contain many profiles.
+
+**Why:** Authentication data such as passwords and login identity should remain in Django's proven user model. MoneyMatters adds its own details through one profile per user. The household relationship is the foundation of data isolation: later queries will use the signed-in user's profile to determine which household's financial records they may access.
+
+**How:** `settings.AUTH_USER_MODEL` refers to whichever authentication user model Django is configured to use, avoiding a fragile hardcoded import. `OneToOneField` behaves like a foreign key with a uniqueness rule, so two profiles cannot point to the same user. `ForeignKey` permits many profiles to point to the same household. `on_delete=models.CASCADE` removes the dependent profile if its user or household is deleted, preventing an orphaned profile. `related_name="profile"` enables `user.profile`; `related_name="members"` enables `household.members.all()`.
+
+**Analogy:** The Django user is a passport, and the profile is its single attached household membership card—one passport cannot have two such cards. The household is a club: every membership card belongs to one club, but the club can have many members. If the passport or the club is permanently removed, its dependent membership card no longer has meaning and is removed too.
+
+**Proposed code:** Add this inside `UserProfile`, directly after the `Role` choices and aligned with `class Role`:
+
+```python
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile"
+    )
+    household = models.ForeignKey(
+        Household, on_delete=models.CASCADE, related_name="members"
+    )
+```
+
+After learner approval, the AI will implement this exact block and verify the file before any additional fields are proposed.
+
+#### Architecture review of the profile relationships
+
+**Purpose:** These fields connect MoneyMatters profile data to Django's authenticated identity and to the household that owns the financial data.
+
+**Location:** They belong in the data-model layer, inside `UserProfile` in `accounts/models.py`, because they describe persistent relationships between database records. Authentication middleware will later identify the Django user; application code can then follow `user.profile.household` to find the correct tenant.
+
+**Important path:** A person logs in and Django sets `request.user`. MoneyMatters reads `request.user.profile`, then reads `.household`. Household-scoped middleware will place that household on the request, and API querysets will filter financial records by it. The final safety path will be `session cookie -> request.user -> user.profile -> profile.household -> filtered queryset`.
+
+**Business rules:** One user may have only one profile; every profile must reference one user and one household; many profiles may reference the same household. Deleting a parent user or household deletes the dependent profile. Household deletion will eventually require additional safeguards because cascading financial data is destructive even though the database relationship supports it.
+
+**Common failures:** Using `ForeignKey` instead of `OneToOneField` for `user` would allow duplicate profiles. Omitting `related_name` would produce awkward reverse names. Hardcoding Django's default `User` class would make a future user-model change harder. Assuming that the relationship alone protects data would be dangerous: every financial queryset must still be household-filtered.
+
+**Tests to understand:** Model tests should prove that a second profile for the same user is rejected, multiple users can join one household, `user.profile` and `household.members.all()` work, required relationships cannot be empty, and deletion follows the agreed policy. Later API tests must prove cross-household access is denied.
+
+**Learner modification after verification:** Once the relationship block is implemented and tested, the learner will inspect the reverse access names in the Django shell and make a small related test or naming change with guidance rather than altering a security-sensitive relationship blindly.
+
+#### Deeper breakdown: the `user` one-to-one relationship
+
+Pause the full relationship block and consider only this field:
+
+```python
+user = models.OneToOneField(
+    settings.AUTH_USER_MODEL,
+    on_delete=models.CASCADE,
+    related_name="profile",
+)
+```
+
+The field will appear on every `UserProfile` row. Although Python calls it `user`, the database normally stores a numeric reference such as `user_id = 7`. That number points to the row with ID 7 in Django's user table. Django's ORM hides the manual lookup, so Python code can write `profile.user` and receive the complete related user object.
+
+`models.OneToOneField` selects the relationship type. It means every profile points to exactly one user, and the database adds a uniqueness rule so the same user cannot be referenced by two different profiles. This direction is important: the field is declared on `UserProfile`, so the profile table stores the reference.
+
+`settings.AUTH_USER_MODEL` selects the destination model. Instead of assuming the project will always use Django's default user class, it reads the configured user model from settings. This makes the relationship compatible with a future custom authentication model.
+
+`on_delete=models.CASCADE` defines what happens to the profile if the referenced user is deleted. The profile is dependent information with no meaning after its login identity is gone, so Django deletes the profile as part of the same operation. Deleting the profile does not cascade backwards and delete the user; the dependency runs from profile to user.
+
+`related_name="profile"` names the reverse route. The field already provides the forward route `profile.user`. The related name adds `user.profile`, allowing code that starts with the authenticated Django user to reach the MoneyMatters profile directly.
+
+Example data:
+
+| Django user table | User profile table |
+|---|---|
+| `id=7, username="alice"` | `id=12, user_id=7, ...` |
+
+From the profile, `profile.user` follows `user_id=7` to Alice. From Alice, `user.profile` uses the reverse relationship to find profile 12.
+
+**Analogy:** The user row is a passport and the profile row is a supplementary card. The card records the passport number it belongs to. The uniqueness rule allows only one such card for that passport, while `related_name` gives the passport office a labelled index for finding the card in reverse.
+
+**Learner check correction:** The relationship is stored in the user-profile table, not the user table. A relationship field is physically stored on the table for the model where the field is declared. Because `user = models.OneToOneField(...)` is written inside `UserProfile`, Django creates a `user_id` column on the profile table. `related_name="profile"` makes `user.profile` possible in Python, but it does not add a profile column to Django's user table.
+
+**Learner check passed:** The learner correctly explained that `OneToOneField` is required because each user should have only one profile and several profiles must not reference the same user.
+
+**Implementation checkpoint approved:** The learner approved the implemented `user` and `household` relationship block after syntax and project checks passed. Full Django model discovery still awaits registration of the `accounts` app in `INSTALLED_APPS`.
+
+#### Deeper breakdown: the `household` foreign-key relationship
+
+Now consider the second proposed field:
+
+```python
+household = models.ForeignKey(
+    Household,
+    on_delete=models.CASCADE,
+    related_name="members",
+)
+```
+
+Like the `user` field, this is declared inside `UserProfile`, so the profile table will store the reference—normally a numeric column such as `household_id = 3`. It points to the row with ID 3 in the household table.
+
+`models.ForeignKey` deliberately allows the same household ID to appear in many profile rows. Each profile still points to only one household, but a household can have many member profiles. This is called a many-to-one relationship when viewed from profiles to households, or one-to-many when viewed from a household to its profiles.
+
+`Household` is the destination model. It can be referenced directly because it is defined earlier in the same `models.py` file.
+
+`on_delete=models.CASCADE` means deleting a household also deletes its dependent profiles. This is the database behaviour in the current design; the application must later protect household deletion with permissions, confirmation, and a deliberate deletion policy because financial records make it a destructive operation.
+
+`related_name="members"` provides the reverse path `household.members.all()`. The word `members` is plural because the reverse result can contain several profiles. The forward path from one profile remains `profile.household`.
+
+Example data:
+
+| Household table | User profile table |
+|---|---|
+| `id=3, name="Smith Household"` | `id=12, household_id=3` |
+| | `id=18, household_id=3` |
+
+Both profiles belong to household 3. `profile.household` retrieves the one household for a profile, while `household.members.all()` retrieves both member profiles.
+
+**Analogy:** The household is a club and each profile is a membership card. Every card names one club, but many cards may name the same club. The club's `members` index collects all cards that point back to it.
+
+### Step 3B: Store the selected financial label and optional avatar
+
+The next proposed block adds two profile details: the selected descriptive label and an optional profile image. It must be reviewed and approved before implementation.
+
+**Purpose:** `descriptive_role` stores one selection from the previously defined `Role` choices. `avatar` stores a reference to an optional uploaded profile image.
+
+**Location:** Both fields belong in the data-model layer inside `UserProfile`. The role is ordinary structured database data. The avatar field stores a file path in the database while the image bytes live in configured media storage; local development and production storage configuration will be added separately.
+
+**Important paths:** For the role, a form or API submits a value such as `"PRIMARY"`; Django validates it against `Role.choices` in forms and serializers, then stores the text value in the profile row. Code can display the friendly label through `profile.get_descriptive_role_display()`. For an avatar, an upload passes through request parsing and file validation, the storage backend saves the image beneath `avatars/`, and the database records its relative path.
+
+**Business rules:** The role defaults to Secondary User when no explicit selection is supplied and remains descriptive rather than permission-bearing. Its maximum stored length must fit every database value. An avatar is optional. Image type, size, and safe serving rules must be enforced before production; `ImageField` alone is not a complete upload-security policy.
+
+**How:** `CharField` stores short text. `choices=Role.choices` supplies allowed values to Django forms and enables the display helper; application-level validation must actually run for the choice check to occur. `default=Role.SECONDARY` gives new profiles a valid initial label. `ImageField` records an uploaded image path and uses Pillow to inspect images. `upload_to="avatars/"` selects a subdirectory within media storage. `blank=True` allows forms and serializers to omit the field; `null=True` permits a database `NULL` in the current design.
+
+**Analogy:** The role field is the space on a membership card where one approved sticker is attached; the sticker list was designed earlier, and this field is the actual attachment point. The avatar field is like a catalogue entry: the database records where the photograph is filed rather than placing the photograph itself inside the catalogue row.
+
+**Common failures:** Confusing the descriptive role with permissions could create an authorization bug. Bypassing model/form/serializer validation can allow a raw invalid choice into the database because Django `choices` are not automatically a database check constraint. Image uploads can fail if Pillow or media settings are missing. Unrestricted uploads can create security and storage problems. Using both `blank=True` and `null=True` on string-like fields can create two representations of emptiness, so the avatar behaviour should be tested deliberately.
+
+**Tests to understand:** Tests should prove the default role is Secondary, accepted choices expose the expected database values and labels, the display helper returns the friendly label, invalid roles are rejected by the validation path used by the app, a profile can exist without an avatar, and an uploaded image uses the expected storage path. Upload tests should use temporary media storage and a small generated fixture rather than real user files.
+
+**Proposed code:** Add this inside `UserProfile`, below the `household` field:
+
+```python
+    descriptive_role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.SECONDARY,
+    )
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+```
+
+After learner approval, the AI will implement only this block and verify syntax. Full Django validation of `ImageField`, including the Pillow dependency, will be performed once `accounts` is registered.
+
+#### Learner modification review: Describe the profile without implying permissions
+
+The learner proposed this docstring:
+
+```python
+"""tells django what user role they have within a household."""
+```
+
+This correctly recognizes that a profile connects a user with household-related information. However, the word `role` can imply access control. In MoneyMatters, Primary User, Secondary User, and Joint are descriptive labels for display and financial attribution; Admin, Member, and Viewer will govern permissions separately. `UserProfile` will also hold household membership and an optional avatar, so its purpose is broader than one role label.
+
+A more accurate sentence should say that the profile stores MoneyMatters-specific information for a Django user, especially household membership and a descriptive financial label. Docstrings conventionally begin with a capital letter and describe what the class represents or does.
