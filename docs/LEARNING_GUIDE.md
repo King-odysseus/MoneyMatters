@@ -1,32 +1,6 @@
-# MoneyMatters Development and Learning Guide
+# MoneyMatters Chronological Learning Record
 
-This is the permanent step-by-step record for building MoneyMatters with Django and React. It is written so the setup and engineering decisions can be reused in future projects.
-
-For every development step, record:
-
-- **Goal:** the outcome we want.
-- **What:** what the command or code does.
-- **Why:** why the project needs it.
-- **When:** when this technique is useful.
-- **Command:** the exact command to run.
-- **Expected result:** how to know it worked.
-- **Common problems:** likely errors and how to investigate them.
-- **Verification:** the check performed before continuing.
-
-## Teaching agreement
-
-The authoritative teaching method is [TEACH.md](TEACH.md). Every agent must read it before teaching, proposing code, or asking the learner to run a command. Its section **The seven required teaching steps** lists the exact seven checks that must be completed for every meaningful code block.
-
-This learning guide is the chronological record: it keeps the seven-step explanations for individual code blocks, exact commands, learner modifications, answers, errors, and verification results. `TEACH.md` defines how those lessons must be taught, including the mandatory seven-step block method and learner-owned terminal practice.
-
-## Project foundation
-
-- Backend: Django and Django REST Framework
-- Frontend: React with TypeScript
-- Product model: users collaborate inside isolated households
-- Financial source of truth: an auditable transaction ledger
-- UI direction: the TijhaBooks midnight-navy and bronze design system
-- Product requirements: `docs/PRD.md`
+This file records lessons, questions, explanations, commands, errors, corrections, learner actions, and verification results in the order they occur. Permanent project context, technology choices, architecture, and teaching rules belong in [TEACH.md](TEACH.md); detailed product requirements belong in [PRD.md](PRD.md); changing implementation progress belongs in [STATUS.md](STATUS.md).
 
 ## Step 0: Clean restart
 
@@ -1827,3 +1801,113 @@ The learner will review the resulting file and run the focused test command pers
 **Analogy:** A database ID is like a warehouse serial number, while the household name is the label a person expects to read. `__str__` prints the useful label, and the test checks that the correct label remains attached.
 
 **Learner-run string-representation test:** The learner ran `python manage.py test accounts.tests.HouseholdModelTests.test_string_representation` and reported that it passed. This proves `str(household)` calls `Household.__str__` and returns the household's actual name in an isolated migrated test database. It does not test admin registration or other Household behaviour. This completes the final coding verification for the session.
+
+### Step 4C: Test the UserProfile default role
+
+#### 1. Purpose
+
+Prove that a new `UserProfile` receives the `SECONDARY` descriptive role when no role is supplied. This protects a deliberate product default from being changed accidentally.
+
+#### 2. Location
+
+The test belongs in `accounts/tests.py` in a new `UserProfileModelTests` class. It checks the default declared by the `UserProfile.descriptive_role` field in `accounts/models.py`.
+
+#### 3. Important execution and data path
+
+The path is `Django test runner -> isolated test database -> create Django user -> create Household -> create UserProfile linked to both -> model supplies the omitted role default -> assertion compares the stored value with UserProfile.Role.SECONDARY -> discard test database`.
+
+#### 4. Main business rules
+
+- Every profile must be linked to one Django user.
+- Every profile must belong to one household.
+- When `descriptive_role` is omitted, it must default to `SECONDARY`.
+- The test should use `UserProfile.Role.SECONDARY` rather than repeating the raw string so it refers to the model's named choice.
+- One user cannot have two profiles because the user relationship is one-to-one.
+
+#### 5. Common failure cases
+
+- Creating a profile without a user or household violates required relationships.
+- Importing Django's concrete `User` class directly can make the test incompatible with a future custom user model.
+- Reusing the same user for another profile would violate the one-to-one constraint.
+- Comparing against the human-readable label `"Secondary User"` would test the display label rather than the stored value `"SECONDARY"`.
+
+#### 6. What the test should prove
+
+A pass proves that Django can create the required related objects and that an omitted `descriptive_role` becomes `UserProfile.Role.SECONDARY` in the isolated test database. It does not prove the other role choices, display labels, reverse relationships, uniqueness error behaviour, or deletion rules.
+
+#### 7. AI implementation and learner review
+
+After the learner opens `accounts/tests.py`, the AI will add the required imports and this focused test class:
+
+```python
+class UserProfileModelTests(TestCase):
+    def test_default_role(self):
+        user = get_user_model().objects.create_user(username="alex")
+        household = Household.objects.create(name="Smith Household")
+        profile = UserProfile.objects.create(user=user, household=household)
+
+        self.assertEqual(profile.descriptive_role, UserProfile.Role.SECONDARY)
+```
+
+`get_user_model()` asks Django for the currently configured user model. `create_user` creates a valid test user. The household supplies the required parent relationship. The profile omits `descriptive_role` deliberately so the assertion can observe the default.
+
+The learner will review the resulting diff and personally run:
+
+```powershell
+python manage.py test accounts.tests.UserProfileModelTests.test_default_role
+```
+
+**Analogy:** Creating the profile is like submitting a membership form with the required person and household filled in but leaving the role box empty. The system should apply its agreed `SECONDARY` label automatically, and the test checks that label before discarding the temporary paperwork.
+
+**Learner-run default-role test:** The learner ran `python manage.py test accounts.tests.UserProfileModelTests.test_default_role`. Django found one test, created an isolated test database, reported no system-check issues, ran the test successfully, and destroyed the temporary database. The passing result proves that a profile linked to a valid user and household receives the stored role `UserProfile.Role.SECONDARY` when `descriptive_role` is omitted. It does not prove the other role choices, display labels, relationship constraints, reverse lookups, or deletion behaviour.
+
+### If I were writing the code myself, would I always need to write automated tests?
+
+No separate test is required for every line of code. Tests should protect meaningful behaviour: something the application promises to users or something that would cause a real problem if it broke.
+
+Important examples in MoneyMatters include:
+
+- a household defaults to the expected currency and fiscal-year month;
+- a profile defaults to the expected role;
+- one user cannot accidentally receive multiple profiles;
+- household relationships and deletion rules behave safely;
+- one household cannot access another household's financial data;
+- permissions prevent an unauthorised person from changing protected information;
+- financial calculations produce correct results.
+
+A simple import or assignment normally does not need its own test. It becomes covered naturally when a behaviour test executes the code that depends on it. Testing implementation details too narrowly can make tests noisy and fragile without protecting useful product behaviour.
+
+Use this practical rule:
+
+> If breaking the behaviour would affect users, money, permissions, saved data, security, or an explicit product requirement, protect it with an automated test.
+
+During development, run the smallest focused test that covers the block being changed. Focused feedback is faster and makes a failure easier to understand. For example:
+
+```powershell
+python manage.py test accounts.tests.UserProfileModelTests.test_default_role
+```
+
+Before committing or pushing, run the complete relevant app suite so nearby behaviour is checked as well:
+
+```powershell
+python manage.py test accounts
+```
+
+Larger projects may also run the complete project suite automatically in continuous integration after a push. A passing focused test proves only its stated behaviour; it never means the whole application is correct.
+
+Automated tests require a little extra work when a feature is written, but they become a repeatable safety net. Instead of manually checking the same rule after every future change, the computer can reproduce the setup, check the expected result, and report regressions consistently.
+
+**Analogy:** A test is like a reusable smoke alarm. It does not prove that every possible danger is absent, and a separate alarm is not installed beside every object. It is placed where an important risk needs dependable warning, then checked repeatedly as the building changes.
+
+**Learner-run accounts test suite:** The learner ran `python manage.py test accounts`. Django found three tests, created an isolated test database, reported no system-check issues, ran all three tests successfully, and destroyed the temporary database. This proves the two `Household` tests and the `UserProfile` default-role test pass together. It does not yet test profile relationships, uniqueness failures, deletion behaviour, API permissions, or household data isolation.
+
+### Documentation responsibility clarified
+
+The learner requested a clearer separation so future AI agents can be directed to one permanent onboarding document without treating the chronological lesson history as project policy.
+
+- `docs/TEACH.md` now owns stable project context, the technology stack, the architectural execution path, document responsibilities, and the mandatory teaching method.
+- `docs/LEARNING_GUIDE.md` now serves only as the chronological record of learning activity and outcomes.
+- `docs/PRD.md` continues to own detailed product requirements.
+- `docs/STATUS.md` continues to own the changing implementation state and next action.
+
+All historical learning entries were preserved during this housekeeping change; only the duplicated introductory policy and project-summary sections were replaced with a concise scope statement.

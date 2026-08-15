@@ -1,18 +1,64 @@
-# MoneyMatters Teaching Method
+# MoneyMatters Project and Teaching Guide
 
-This file is the permanent teaching contract for MoneyMatters. Every AI agent must read it before teaching, proposing code, or asking the learner to run a command. `docs/LEARNING_GUIDE.md` remains the chronological record of lessons, commands, explanations, learner answers, and verification results.
+This is the permanent onboarding document for anyone helping with MoneyMatters. Every AI agent must read this file before teaching, proposing code, editing project files, or asking the learner to run a command. It provides the stable project context, technology stack, architecture rules, and mandatory teaching method in one place.
+
+## How the project documents are used
+
+- `docs/TEACH.md` is the stable agent-onboarding source for project context, architecture, technology, and teaching rules. Read it first.
+- `docs/LEARNING_GUIDE.md` is the chronological learning record. Append individual lessons, learner questions, exact commands, errors, corrections, and verification results there. Do not use it as the source of permanent teaching policy or general project orientation.
+- `docs/PRD.md` is the detailed product requirements document. Consult it when designing a feature, resolving a product decision, or checking acceptance requirements.
+- `docs/STATUS.md` records the changing implementation state and next action. Read it rather than placing temporary progress information in this permanent guide.
+
+## Project purpose and core domain
+
+MoneyMatters is a household financial-management application that replaces fragile spreadsheets with a secure, auditable, multi-user system. People collaborate inside an isolated household to manage income, expenses, savings, mortgage information, investments, projects, and other financial records.
+
+The central product boundaries are:
+
+- A household is the top-level owner of financial information.
+- Users participate through a profile linked to one household.
+- Data from one household must never be exposed to another household.
+- An auditable transaction ledger is the financial source of truth.
+- Financial calculations and permission decisions belong on the server, not in the browser.
+- Security, correctness, traceability, and recoverable database changes are mandatory because the application handles financial data.
+
+## Technology stack
+
+Some technologies are already present, while others are the agreed target for later milestones. Do not assume a planned layer has been scaffolded; check `docs/STATUS.md` and the repository first.
+
+| Layer | Agreed technology |
+|---|---|
+| Backend | Python, Django 5.x, and Django REST Framework |
+| Development database | SQLite during the current local learning stage |
+| Production database | PostgreSQL 16+ through the Django ORM |
+| Authentication | Django session authentication |
+| Admin | Django admin for raw management plus later custom React configuration pages |
+| Image support | Pillow for Django image fields |
+| Frontend | React 18+ with TypeScript |
+| Styling and components | Tailwind CSS and shadcn/ui |
+| Frontend data and UI state | TanStack Query and React Context |
+| Charts | Recharts |
+| Audit history | django-simple-history |
+| Background work | Django Q or Celery when backups or notifications require it |
+| Intended hosting | Vercel for the frontend and Railway or Hetzner for the backend and PostgreSQL |
+
+Exact installed Python dependency versions belong in `requirements.txt`. Planned product and infrastructure details belong in `docs/PRD.md`.
+
+## Architecture and execution path
+
+MoneyMatters is a full-stack application. Django and Django REST Framework own the backend API, validation, permissions, financial rules, persistence, and calculations. React with TypeScript owns the browser interface and displays server results; it must not become a separate source of financial truth.
+
+When a feature crosses the full stack, trace it as:
+
+`React interface -> HTTP request -> Django API -> authentication and household permissions -> business rules -> Django ORM -> database -> API response -> TanStack Query cache update -> React display`
+
+Build only the layer required by the current milestone. The absence of a React scaffold during an early backend milestone does not remove React from the architecture. Do not create empty layers merely to make the folder structure look complete.
 
 ## Learner and engineering standard
 
 The learner is new to coding and is learning Python, Django, the command line, Git, and editor use together. Assume nothing is obvious, define new vocabulary gradually, and give exact practical instructions.
 
 MoneyMatters is still a production-minded application. Beginner-accessible teaching must not weaken its architecture, security, tests, or maintainability.
-
-## Full-stack teaching scope
-
-MoneyMatters is a full-stack project: Django and Django REST Framework provide the backend API, while React with TypeScript provides the frontend user interface. PostgreSQL is the intended production database. The current repository may contain only the layers reached so far in the guided rebuild; the absence of a React scaffold at an early backend milestone does not remove React from the agreed architecture.
-
-Teaching must help the learner understand both sides and the path between them. When a feature eventually crosses layers, trace the complete flow: `React interface -> HTTP request -> Django API -> business rules -> database -> API response -> React update`. Still build one meaningful block at a time. Do not introduce frontend scaffolding merely to make the folder exist; create it when the agreed milestone reaches frontend work, using the same seven required teaching steps and learner-owned terminal practice.
 
 ## The seven required teaching steps
 
