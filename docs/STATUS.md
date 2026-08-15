@@ -19,14 +19,15 @@ Core models: create the `accounts` app with Household and UserProfile models, th
 - Added `UserProfile` relationships, descriptive financial-role choices, and an optional avatar field.
 - Installed Pillow 12.3.0 and recorded the backend dependencies in `requirements.txt`.
 - Created `docs/TEACH.md` as the mandatory seven-step, learner-led teaching contract.
+- Registered `accounts.apps.AccountsConfig` in `INSTALLED_APPS` and passed the learner-run Python syntax check.
 
 ## Next action
 
-Teach and register `accounts` in `INSTALLED_APPS`, then run Django's system check before proposing migrations or admin registration.
+Run the learner-led Django system check for the newly registered `accounts` app, record its result, and only then propose the migration block.
 
 ## Important state
 
-- The `accounts` model code exists, but the app is not yet registered in `INSTALLED_APPS` and no accounts migration has been created or applied.
+- The `accounts` model code is registered in `INSTALLED_APPS`, but the Django system check is still pending and no accounts migration has been created or applied.
 - `docs/PRD.md` remains the living product requirements document.
 - `docs/TEACH.md` is the authoritative teaching contract. Its seven-step block method and learner-owned terminal practice are mandatory.
 - Every future command and instruction must be recorded in `docs/LEARNING_GUIDE.md` before or as it is introduced.

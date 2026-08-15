@@ -41,6 +41,8 @@ Before showing code or a command for the learner to use, cover:
 
 Record the explanation, proposed block, and exact command in `docs/LEARNING_GUIDE.md` before asking the learner to type or run it.
 
+When recording a learner's question, rewrite spelling and grammar into clear, respectful English while preserving the learner's exact intent. Use a complete question as the heading, then record the answer or correction separately. Do not preserve typing mistakes as if they were the learner's preferred wording, and do not change the substance of what the learner asked.
+
 ## Important: the learner owns terminal practice
 
 Terminal commands that are part of a lesson belong to the learner. This hands-on practice is mandatory unless the learner explicitly asks for help or asks the AI to run a command.

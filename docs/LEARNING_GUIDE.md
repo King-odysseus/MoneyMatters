@@ -1350,7 +1350,7 @@ Save with `Ctrl+S`. Do not run an installation command from the file yet; the AI
 
 **Analogy:** The virtual environment is the food already present in one kitchen. `requirements.txt` is the recipe's ingredient list. A recipe should name the ingredients the meal depends on, not blindly inventory every object found in the kitchen cupboards.
 
-#### Learner question: how were the Django and DRF versions known, and can pip populate the file?
+#### Learner question: How do we know which Django and Django REST Framework versions to record, and can pip generate the requirements file automatically?
 
 The proposed Django and Django REST Framework ranges came from the earlier learner-run installation recorded in this guide: `Django~=5.2.0` and `djangorestframework~=3.16.0`. The status record later reported installed maintenance versions Django 5.2.16 and DRF 3.16.1. Historical documentation is useful, but the active virtual environment should be inspected before creating its manifest.
 
@@ -1367,3 +1367,85 @@ Run this from the MoneyMatters project root with `.venv` active. `python` select
 **Analogy:** `pip freeze` photographs every labelled ingredient currently in the kitchen, including ingredients brought in automatically by other ingredients. A hand-written direct-dependency file is the recipe's shopping list. Both are useful, but they answer different questions.
 
 **Learner-created frozen manifest:** The learner used the automatic freeze approach before the Git checkpoint. `requirements.txt` now records the exact active environment: `asgiref==3.12.1`, `Django==5.2.16`, `djangorestframework==3.16.1`, `pillow==12.3.0`, `sqlparse==0.5.5`, and `tzdata==2026.3`. Django, DRF, and Pillow are the direct project dependencies; asgiref, sqlparse, and tzdata are resolved supporting dependencies. This exact manifest favours repeatable installation. Future dependency upgrades must deliberately regenerate and review the frozen versions rather than editing the environment without updating the file.
+
+### Step 3F: Register accounts in Django's app registry
+
+The `accounts` Python package and its models now exist, but Django does not automatically treat every folder as an application. This block connects the app to the project through `INSTALLED_APPS`.
+
+#### 1. Purpose
+
+Register `accounts` so Django loads its `AccountsConfig`, discovers `accounts/models.py`, includes its models in system checks and migrations, and can later connect its admin, signals, and other app-level features. Registration makes Django aware of the app; it does not create database tables.
+
+#### 2. Location
+
+The change belongs in the project-configuration layer inside `INSTALLED_APPS` in `config/settings.py`. `config` controls the whole Django project, while `accounts/apps.py` already defines the app-specific `AccountsConfig` class that the setting will reference.
+
+#### 3. Important execution path
+
+The startup path is `manage.py command -> DJANGO_SETTINGS_MODULE selects config.settings -> Django reads INSTALLED_APPS -> imports accounts.apps.AccountsConfig -> AccountsConfig names the accounts package -> Django imports accounts.models -> Household and UserProfile enter the app registry -> system checks and migration discovery can inspect them`.
+
+#### 4. Main business rules
+
+- Register the explicit dotted path `accounts.apps.AccountsConfig` once.
+- Keep the entry inside the `INSTALLED_APPS` list and include its trailing comma.
+- Place the local app after Django's built-in `django.contrib.*` apps so the list remains easy to scan.
+- Registration enables discovery but does not create or apply a migration.
+- The descriptive role remains separate from permissions; app registration does not change that boundary.
+
+#### 5. Common failure cases
+
+- A misspelled dotted path raises an import or module-not-found error during Django startup.
+- Placing the string outside the list leaves the app unregistered or creates invalid Python.
+- Omitting quotes makes Python treat the dotted path as code rather than text.
+- Registering the app twice can create duplicate app-label errors.
+- Running migrations before reviewing the generated migration can hide an unintended database design.
+- Without Pillow, Django would report an `ImageField` system-check error; the learner has already installed Pillow 12.3.0 in the project environment.
+
+#### 6. Checks and later tests
+
+After the edit, first use Python syntax and Git whitespace checks. Then run `python manage.py check`. A successful Django check should report `System check identified no issues (0 silenced).` That proves Django can load the registered app and its current models without a detected configuration error. It does not create a migration, create tables, or prove model business behaviour. Migration inspection and model tests remain later blocks.
+
+#### 7. Learner modification
+
+From the MoneyMatters project root, open the settings file:
+
+```powershell
+code config/settings.py
+```
+
+Find `INSTALLED_APPS`. Directly below `'django.contrib.staticfiles',` and before the closing `]`, add:
+
+```python
+    'accounts.apps.AccountsConfig',
+```
+
+Save with `Ctrl+S`. Do not run Django yet. The AI will inspect the location, spelling, indentation, comma, and surrounding list before explaining the learner-run verification commands.
+
+**Analogy:** Creating the `accounts` folder built a new department and gave it a manager named `AccountsConfig`. `INSTALLED_APPS` is the building's official department directory. Until the new department is listed there, Django's building manager does not visit it, inspect its models, or include it in project operations.
+
+**Learner modification review:** The learner added `'accounts.apps.AccountsConfig',` directly after Django's built-in apps and before the closing `INSTALLED_APPS` bracket. Read-only inspection confirmed the dotted path, quotes, indentation, trailing comma, and list placement are correct. The edit is ready for learner-run syntax and Django checks.
+
+#### Learner question: Why are we registering AccountsConfig when we did not add it to models.py?
+
+`AccountsConfig` is not a model and does not belong in `accounts/models.py`. Django created it automatically in `accounts/apps.py` when `python manage.py startapp accounts` generated the app scaffold:
+
+```python
+from django.apps import AppConfig
+
+
+class AccountsConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'accounts'
+```
+
+Read the dotted path `accounts.apps.AccountsConfig` from left to right: `accounts` is the Python package, `apps` is the `apps.py` module inside it, and `AccountsConfig` is the class defined in that module. `INSTALLED_APPS` imports this class first. Its `name = 'accounts'` setting identifies the package whose models Django should then discover.
+
+`AccountsConfig` provides metadata and startup configuration for the whole app. `Household` and `UserProfile` represent database data, so they belong separately in `models.py`. The project-level package also happens to be named `config`, but that is different from Django's generic term “app config” and from the specific `AccountsConfig` class.
+
+**Analogy:** `models.py` contains the department's forms and records. `AccountsConfig` is the department manager's registration card, created when the department was scaffolded. `INSTALLED_APPS` lists that manager's full address so Django knows which department to open and inspect.
+
+**Learner understanding correction:** The learner initially understood `accounts.apps.AccountsConfig` as pointing directly to the models. The path actually points to the `AccountsConfig` class inside `accounts/apps.py`, not to `models.py`. Django loads that class, reads `name = 'accounts'` to identify the app package, builds the app registry, and then imports the app's models as part of setup. The models are reached indirectly through Django's app-loading process.
+
+**Learner understanding check passed:** The learner correctly identified that `AccountsConfig` is located in the `accounts` folder inside `apps.py`. The filename is plural: `apps.py`. The learner is ready to resume verification of the `INSTALLED_APPS` change.
+
+**Learner-run settings syntax verification:** The learner ran `python -m py_compile config/settings.py` and reported that it passed with no output. This proves Python can parse the updated settings file without a syntax or indentation error. It does not prove that the dotted app path can be imported or that Django can load the models; the Django system check is required next.
