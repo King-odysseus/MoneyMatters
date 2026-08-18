@@ -1911,3 +1911,1044 @@ The learner requested a clearer separation so future AI agents can be directed t
 - `docs/STATUS.md` continues to own the changing implementation state and next action.
 
 All historical learning entries were preserved during this housekeeping change; only the duplicated introductory policy and project-summary sections were replaced with a concise scope statement.
+
+### Step 4D: Test the UserProfile reverse relationships
+
+#### 1. Purpose
+
+Prove that the relationship names declared on `UserProfile` work in both reverse directions: a Django user can find their profile through `user.profile`, and a household can find its member profiles through `household.members`. Later authentication, API filtering, and household permissions will rely on these paths.
+
+#### 2. Location
+
+The test belongs inside `UserProfileModelTests` in `accounts/tests.py`. It tests the `related_name="profile"` and `related_name="members"` declarations in `accounts/models.py`. This is still the model-test layer; no production model field or database migration changes.
+
+#### 3. Important execution and data path
+
+The path is `Django test runner -> isolated test database -> create user -> create household -> create linked UserProfile -> user.profile follows the reverse one-to-one relation -> household.members queries the reverse foreign-key relation -> assertions compare both results with the created profile -> discard test database`.
+
+#### 4. Main business rules
+
+- A user must be able to reach their single profile through `user.profile`.
+- A household must be able to reach its associated profiles through `household.members`.
+- Both reverse paths must return the same saved profile created by the test.
+- `profile` is singular because the user relationship is one-to-one.
+- `members` is a related manager because one household can contain multiple profiles.
+
+#### 5. Common failure cases
+
+- Misspelling or changing a `related_name` breaks code that uses the agreed reverse path.
+- Trying to use `household.members` as one object fails because it is a manager; a query such as `.get()` or `.all()` is required.
+- Accessing `user.profile` before a profile exists raises `UserProfile.DoesNotExist`.
+- Creating related objects only in memory without saving them would leave nothing for a reverse database query to find.
+- A passing relationship test does not by itself prevent a future API from exposing another household's data.
+
+#### 6. What the test should prove
+
+A pass proves that both named reverse ORM paths resolve to the saved profile in Django's isolated test database. It does not prove multiple-member behaviour, duplicate-profile rejection, cascade deletion, API authentication, permissions, or household isolation.
+
+#### 7. AI implementation and learner review
+
+After the learner opens `accounts/tests.py`, the AI will add this focused method inside the existing `UserProfileModelTests` class:
+
+```python
+    def test_reverse_relationships(self):
+        user = get_user_model().objects.create_user(username="alex")
+        household = Household.objects.create(name="Smith Household")
+        profile = UserProfile.objects.create(user=user, household=household)
+
+        self.assertEqual(user.profile, profile)
+        self.assertEqual(household.members.get(), profile)
+```
+
+The first assertion uses the singular reverse one-to-one attribute. The second calls `.get()` on the household's reverse related manager and confirms that its database query returns the same profile.
+
+The learner will review the diff and personally run:
+
+```powershell
+python manage.py test accounts.tests.UserProfileModelTests.test_reverse_relationships
+```
+
+Run this command from the MoneyMatters project root with `.venv` active. `python` uses the active project interpreter, `manage.py test` starts Django's test runner, and the dotted path selects only this test method. It creates and destroys an isolated test database but does not modify the normal `db.sqlite3`, source files, dependencies, or Git history. Expected success output includes `Found 1 test(s)` and `OK`; paste any failure or traceback in full.
+
+**Analogy:** The profile is a contact card filed in two indexes. Looking up the person should reveal their one card, while opening the household's member index should reveal the same card. This test checks both index labels before later features rely on them.
+
+**Learner-run reverse-relationships test:** The learner ran `python manage.py test accounts.tests.UserProfileModelTests.test_reverse_relationships` and reported that the test completed with `OK` in 0.002 seconds before Django destroyed the isolated test database. This proves `user.profile` and `household.members.get()` both resolve to the saved `UserProfile`. It does not prove multiple-member behaviour, duplicate-profile rejection, cascade deletion, API permissions, or household data isolation.
+
+**Reverse-relationships test restored and reverified:** At the start of the next session, repository inspection found that `docs/LEARNING_GUIDE.md` contained the earlier passing result but the uncommitted `test_reverse_relationships` method was no longer present in `accounts/tests.py`, likely because an older editor buffer had later replaced the file contents. The AI restored only the previously approved method. The learner reran the same focused command, and it completed with `OK` in 0.002 seconds before Django destroyed the isolated test database. The source and recorded verification are aligned again.
+
+### Step 4E: Test household cascade deletion
+
+#### 1. Purpose
+
+Prove that deleting a `Household` removes its dependent `UserProfile` records while preserving the independent Django users. A profile cannot meaningfully remain attached to a household that no longer exists, but deleting a household must not silently delete login accounts.
+
+#### 2. Location
+
+The test belongs inside `UserProfileModelTests` in `accounts/tests.py`. It checks the `on_delete=models.CASCADE` rule on `UserProfile.household` in `accounts/models.py`. No production model or migration change is required.
+
+#### 3. Important execution and data path
+
+The path is `Django test runner -> isolated test database -> create user, household, and profile -> call household.delete() -> Django follows the household foreign key's CASCADE rule -> delete the dependent profile -> query for both original primary keys -> assertions confirm profile absent and user present -> discard test database`.
+
+#### 4. Main business rules
+
+- A profile cannot survive without its household.
+- Deleting a household must cascade to every profile belonging to it.
+- The linked Django user is not owned by the household foreign key and must remain.
+- The test must query by saved primary keys after deletion instead of trusting an in-memory Python object.
+- This behaviour is destructive and must be explicitly protected because future financial data will also be household-scoped.
+
+#### 5. Common failure cases
+
+- Changing the foreign key to another deletion rule can leave orphaned profiles or block deletion unexpectedly.
+- Checking only the old in-memory `profile` variable does not prove its database row was deleted.
+- Assuming cascade travels in both directions could lead someone to expect the user to be deleted incorrectly.
+- Reusing `household.pk` after `delete()` is unreliable because Django clears the deleted object's primary key, so the test must save required IDs first.
+- This focused test does not prove that deleting a user has the correct effect on their profile.
+
+#### 6. What the test should prove
+
+A pass proves that deleting the household removes the saved profile row and leaves the saved Django user row in the isolated test database. It does not prove deletion permissions, confirmation screens, audit history, recovery, API behaviour, or cascading rules for financial models that have not been created yet.
+
+#### 7. AI implementation and learner review
+
+After the learner opens `accounts/tests.py`, the AI will add this focused method inside `UserProfileModelTests`:
+
+```python
+    def test_deleting_household_deletes_profile_but_preserves_user(self):
+        user = get_user_model().objects.create_user(username="alex")
+        household = Household.objects.create(name="Smith Household")
+        profile = UserProfile.objects.create(user=user, household=household)
+        user_id = user.pk
+        profile_id = profile.pk
+
+        household.delete()
+
+        self.assertFalse(UserProfile.objects.filter(pk=profile_id).exists())
+        self.assertTrue(get_user_model().objects.filter(pk=user_id).exists())
+```
+
+The saved IDs let the test query database state after deletion. `.filter(...).exists()` performs an efficient true-or-false database check without requiring the deleted object to load successfully.
+
+The learner will review the diff and personally run:
+
+```powershell
+python manage.py test accounts.tests.UserProfileModelTests.test_deleting_household_deletes_profile_but_preserves_user
+```
+
+Run this from the MoneyMatters project root with `.venv` active. The dotted path selects only this method. Django creates and destroys an isolated test database; the command does not delete anything from the normal `db.sqlite3`, change source files, install packages, or alter Git history. Expected success output includes `Found 1 test(s)` and `OK`; report any traceback in full.
+
+**Analogy:** A household profile is like a membership card issued by a club. Closing the club invalidates and removes its membership cards, but it does not erase the people who once held them. The test checks both outcomes.
+
+**Learner-run household cascade-deletion test:** The learner ran `python manage.py test accounts.tests.UserProfileModelTests.test_deleting_household_deletes_profile_but_preserves_user`. Django reported no system-check issues, ran the focused test successfully in 0.002 seconds, and returned `OK`. This proves that deleting a household removes its dependent profile while preserving the linked Django user in the isolated test database. It does not prove deletion permissions, confirmation, auditing, recovery, API behaviour, or deletion rules for future financial models.
+
+#### Accounts model-test checkpoint
+
+Five focused accounts tests now cover Household defaults, Household text representation, the UserProfile default role, both reverse relationship names, and the household-to-profile cascade rule that preserves the user. Before leaving this model-testing block, run all accounts tests together:
+
+```powershell
+python manage.py test accounts
+```
+
+Run this command from the MoneyMatters project root with `.venv` active. `python` selects the project interpreter, `manage.py test` starts Django's test runner, and `accounts` selects every discovered test in that app. Django creates and destroys an isolated test database; it does not alter the normal `db.sqlite3`, source files, dependencies, or Git history.
+
+Expected success output includes `Found 5 test(s)`, five dots, and `OK`. A failure means the complete accounts set does not work together even if an individual focused test passed; paste the full traceback before proceeding to Django admin registration.
+
+**Learner-run accounts model-test checkpoint:** The learner ran `python manage.py test accounts` and reported that all five tests passed. This confirms the Household default and text tests and the UserProfile default-role, reverse-relationship, and cascade-deletion tests work together in Django's isolated test database. It does not prove admin configuration, API behaviour, permissions, or household isolation.
+
+### Step 5A: Register Household and UserProfile in Django admin
+
+#### 1. Purpose
+
+Register `Household` and `UserProfile` with Django's built-in admin site so authorised staff can inspect and manage their database records through `/admin/`. This creates an internal raw-management interface; it is not the future customer-facing React interface.
+
+#### 2. Location
+
+The registration belongs in `accounts/admin.py`, the accounts app's admin-configuration layer. Model definitions remain in `accounts/models.py`, and public API behaviour will later belong in serializers, views, and permissions rather than in this file.
+
+#### 3. Important execution and data path
+
+The path is `Django starts -> app registry imports accounts.admin -> admin.site.register stores both model classes in the admin registry -> authorised staff requests /admin/ -> Django admin reads the registry -> generates model pages -> admin actions use the Django ORM -> database changes are saved`.
+
+#### 4. Main business rules
+
+- Only authenticated users with staff permissions can enter Django admin.
+- Register both models so their records are available to authorised administrators.
+- Admin registration does not make the models publicly accessible through an API.
+- The initial registration uses Django's default generated admin pages; custom lists, filters, search, and restrictions can be added in later focused blocks.
+- Django admin is for internal raw management, while the planned React interface will provide safer product workflows.
+
+#### 5. Common failure cases
+
+- Forgetting to import a model causes a Python name error.
+- Forgetting to register a model keeps it absent from the admin index.
+- Registering the same model twice raises `AlreadyRegistered` when Django loads the app.
+- Treating admin registration as household data isolation would be unsafe; API permissions still need separate implementation and testing.
+- Allowing ordinary users staff access accidentally could expose sensitive financial information.
+
+#### 6. What verification should prove
+
+`python manage.py check` should prove Django can import `accounts.admin`, register both models once, and load the admin configuration without a detected system error. It does not prove that a particular user has staff permission, that the admin pages look correct, or that future household access restrictions work. A later admin-client or browser check can verify access and presentation.
+
+#### 7. AI implementation and learner review
+
+After the learner opens `accounts/admin.py`, the AI will replace its placeholder comment with:
+
+```python
+from django.contrib import admin
+
+from .models import Household, UserProfile
+
+admin.site.register(Household)
+admin.site.register(UserProfile)
+```
+
+Line by line:
+
+- `from django.contrib import admin` imports Django's built-in admin tools and the default admin site object.
+- The blank line separates a framework import from the app's local model import.
+- `from .models import Household, UserProfile` imports the two model classes from the current `accounts` package.
+- The next blank line separates imports from executable registration statements.
+- `admin.site.register(Household)` places the Household model in the default admin site's registry.
+- `admin.site.register(UserProfile)` does the same for UserProfile.
+
+After reviewing the diff, the learner will personally run:
+
+```powershell
+python manage.py check
+```
+
+Run this from the MoneyMatters project root with `.venv` active. `python` uses the project interpreter, `manage.py` loads the MoneyMatters settings, and `check` runs Django's configured system checks. The command reads and imports project code but does not change source files, dependencies, Git history, or database records. Expected output is `System check identified no issues (0 silenced).`; paste any error or traceback in full.
+
+**Analogy:** The models are products stored in a warehouse, and the admin site is a staff-only inventory desk. Registration adds those product types to the desk's catalogue; it does not open the warehouse to the public.
+
+**Learner-run admin system check:** After the AI registered `Household` and `UserProfile` in `accounts/admin.py`, the learner ran `python manage.py check`. Django reported `System check identified no issues (0 silenced).` This proves Django imported the admin configuration and accepted both registrations without a detected system error. It does not prove staff access, admin-page appearance, model permissions, or household isolation.
+
+**Editor-command correction:** Before the successful check, the learner entered `code manage.py check`. The `code` command asks VS Code to open the following arguments as files or paths, so it does not run Django's system checks. The command was harmless and did not change the database or Git history. The correct execution command is `python manage.py check`: `python` runs `manage.py`, and `check` is then interpreted by Django as the system-check subcommand.
+
+### Step 5B: Inspect existing admin access before creating another user
+
+The local database previously contained one preserved Django user. Before considering `createsuperuser` or launching the admin login, inspect that user's access flags without changing any records.
+
+Run from the MoneyMatters project root with `.venv` active:
+
+```powershell
+python manage.py shell -c "from django.contrib.auth import get_user_model; print(list(get_user_model().objects.values('username', 'is_staff', 'is_superuser')))"
+```
+
+Line by line and left to right:
+
+- `python manage.py shell` starts a Django-aware Python shell using the MoneyMatters settings and database.
+- `-c` tells the shell to run the quoted Python statement and exit.
+- `from django.contrib.auth import get_user_model` imports the safe helper for retrieving the configured user model.
+- `get_user_model().objects` accesses that model's database manager.
+- `.values('username', 'is_staff', 'is_superuser')` asks only for the three named fields rather than passwords or complete user objects.
+- `list(...)` executes the query and converts its rows into a printable list of dictionaries.
+- `print(...)` displays the result.
+
+This command is read-only: it does not create a user, change permissions, edit source files, install dependencies, or alter Git history. `is_staff: True` means the user may enter Django admin; `is_superuser: True` means the user bypasses ordinary per-model permission checks. If either required flag is false, stop before changing it. Paste the complete output, but never paste a password.
+
+**Analogy:** Registering models stocked the staff inventory desk. This command checks whether the existing employee badge is authorised to enter that desk before issuing another badge.
+
+**Learner-run admin-access inspection:** The learner ran the read-only Django shell query. It returned one existing user with both `is_staff: True` and `is_superuser: True`. The username is intentionally not repeated in this learning record. This proves the preserved local user has permission to enter Django admin and manage registered models, so creating another superuser or changing permission flags is unnecessary. It does not prove the learner remembers the password or that the admin pages render correctly.
+
+### Step 5C: Launch Django and inspect the registered models in admin
+
+Run the local Django development server from the MoneyMatters project root with `.venv` active:
+
+```powershell
+python manage.py runserver
+```
+
+- `python` uses the active project interpreter.
+- `manage.py` loads the MoneyMatters settings and applications.
+- `runserver` starts Django's development-only HTTP server, normally at `http://127.0.0.1:8000/`.
+- Django performs system checks before accepting requests.
+- The command keeps running and occupies that terminal until the learner presses `Ctrl+C`.
+
+Expected startup output includes `System check identified no issues`, `Starting development server at http://127.0.0.1:8000/`, and a warning that this is a development server. Leave that terminal running, open `http://127.0.0.1:8000/admin/` in a browser, and sign in with the existing administrator credentials. Never paste the password into chat.
+
+After login, the admin index should contain an `Accounts` section listing `Households` and `User profiles`. Seeing both proves that the earlier registration statements are reflected in Django's generated interface. It does not prove public API permissions or household isolation.
+
+This command does not edit source files, install dependencies, change Git history, or create database records by itself. Logging in may update session-related database rows and the user's last-login timestamp. Stop and paste any terminal traceback, browser error, or unexpected page description. When finished inspecting, return to the server terminal and press `Ctrl+C` to stop it.
+
+**Analogy:** The system check confirmed that the inventory desk was assembled correctly. `runserver` opens the building locally so the authorised employee can walk to the desk and confirm that both registered catalogues are visible.
+
+#### Learner question: What should I do if I cannot remember the local Django administrator password?
+
+Do not create a duplicate administrator and do not reveal or reuse a password from an important real account. Django provides the interactive `changepassword` management command for the existing local user.
+
+If `runserver` is occupying the terminal, press `Ctrl+C` to stop it first. From the MoneyMatters project root with `.venv` active, run:
+
+```powershell
+python manage.py changepassword "<existing-username>"
+```
+
+Replace `<existing-username>` with the username shown by the earlier read-only query. Keep the quotation marks because the username may contain characters such as `@`.
+
+- `python` uses the active virtual environment.
+- `manage.py` loads the MoneyMatters settings and local database.
+- `changepassword` selects Django's secure interactive password-change command.
+- The final argument identifies the existing user whose password hash will change.
+- Django prompts for the new password twice. PowerShell intentionally displays no characters while a password is typed; this is normal.
+
+This command changes the password hash stored for that user in the local `db.sqlite3`. It does not reveal the old password, edit source files, create another user, install packages, or change Git history. Use a strong development password that is not reused for email, banking, GitHub, or another real service. Never paste either password into chat.
+
+Expected success output ends with `Password changed successfully`. If Django says the user does not exist or the two entries do not match, paste only the error text, never the password. After success, restart `python manage.py runserver` and sign in at `http://127.0.0.1:8000/admin/` with the existing username and new local password.
+
+**Analogy:** This replaces the local staff badge's secret code after verifying which badge already exists; it does not issue a second badge or recover the unreadable old code.
+
+**Learner-run local admin password change:** The learner ran Django's interactive `changepassword` command for the existing local administrator and reported that it succeeded. No password value is recorded. This means the local password hash was replaced and the existing staff/superuser account can now be used for the browser verification. It does not change source code or Git history.
+
+**Git Bash environment note:** The learner switched from PowerShell to Git Bash. When `(.venv)` is not already visible, the project environment is activated in Git Bash with `source .venv/Scripts/activate`; the Django server command remains `python manage.py runserver`. `Ctrl+C` stops the development server in either shell.
+
+**Learner-run Django admin browser verification:** The learner started the local Django development server from Git Bash, signed in successfully with the existing local administrator, and confirmed that the admin index contains an `Accounts` section with both `Households` and `User profiles`. This proves the admin URL, session login, account access, model registration, and generated index presentation work together locally. Empty model lists are normal because no household or profile rows have been created. This does not prove public API behaviour, household isolation, customised admin presentation, or production deployment.
+
+### Step 6A: Resolve the current household in request middleware
+
+#### 1. Purpose
+
+Create middleware that gives every request a predictable `request.household` attribute. For an authenticated user with a `UserProfile`, it resolves that profile's household. Anonymous visitors and authenticated users without a profile receive `None`. Later API views will use this value to restrict database queries to the current household.
+
+This middleware is one part of the isolation boundary, not the complete security rule. Every household-owned API queryset must still explicitly filter by `request.household`.
+
+#### 2. Location
+
+The new class belongs in `accounts/middleware.py`, the request-processing layer of the accounts app. It does not belong in `models.py` because it does not define persistent data, and it does not belong in a view because the household must be resolved consistently before many different views execute.
+
+The file does not exist yet. This block creates it but does not activate the middleware in `config/settings.py`; settings registration and middleware ordering will be a separate reviewed block after focused tests.
+
+#### 3. Important execution and data path
+
+The eventual path is `browser sends session cookie -> SessionMiddleware loads the session -> AuthenticationMiddleware sets request.user -> CurrentHouseholdMiddleware sets request.household to None -> authenticated user follows request.user.profile.household -> resolved Household is stored on request.household -> view executes -> viewset filters its queryset by request.household`.
+
+The middleware must eventually be listed after `django.contrib.auth.middleware.AuthenticationMiddleware`. If it runs earlier, `request.user` has not been attached yet.
+
+#### 4. Main business rules
+
+- Every processed request receives a `household` attribute, even when no household can be resolved.
+- An authenticated user with a profile receives that profile's household.
+- An anonymous user receives `None` without causing an error.
+- An authenticated user without a profile receives `None` without breaking Django admin or onboarding.
+- Catch only the expected `UserProfile.DoesNotExist` condition; unrelated programming or database errors must remain visible.
+- Middleware resolution does not authorise access by itself; later viewsets must filter household-owned records and reject missing household context where appropriate.
+
+#### 5. Common failure cases
+
+- Registering the middleware before AuthenticationMiddleware causes `request.user` access to fail.
+- Assuming every authenticated user already has a profile would break the preserved superuser and incomplete onboarding accounts.
+- Catching every exception would hide real defects and database failures.
+- Leaving `request.household` undefined for anonymous users forces every later view to guess whether the attribute exists.
+- Trusting a household ID supplied by the browser would allow users to request another household; resolution must follow the authenticated server-side profile.
+- Stamping the request but forgetting queryset filtering would still permit cross-household data exposure.
+
+#### 6. What the tests should prove
+
+The next focused test block should prove three branches: an authenticated user with a profile receives the correct household, an authenticated user without a profile receives `None`, and an anonymous user receives `None`. It should also prove the wrapped response callable still runs. These tests will exercise the middleware directly before it is activated globally.
+
+A syntax check in this block proves only that Python can parse the new file. It does not prove request behaviour, middleware ordering, settings registration, API filtering, or household isolation.
+
+#### 7. AI implementation and learner review
+
+After the learner opens `accounts/middleware.py`, the AI will create this class:
+
+```python
+from .models import UserProfile
+
+
+class CurrentHouseholdMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        request.household = None
+
+        if request.user.is_authenticated:
+            try:
+                request.household = request.user.profile.household
+            except UserProfile.DoesNotExist:
+                pass
+
+        return self.get_response(request)
+```
+
+Line by line:
+
+- `from .models import UserProfile` imports the profile model from the current `accounts` package so the middleware can catch its specific missing-profile exception.
+- Two blank lines separate the import section from the top-level class, following normal Python layout.
+- `class CurrentHouseholdMiddleware:` defines the middleware class; the name describes the request value it resolves.
+- `def __init__(self, get_response):` is called once when Django builds the middleware chain. `self` is this middleware instance, and `get_response` is the next callable in the chain.
+- `self.get_response = get_response` stores that next callable so each request can continue after this middleware finishes its work.
+- The blank line separates middleware setup from per-request behaviour.
+- `def __call__(self, request):` makes the instance callable. Django invokes it for every request and supplies the current request object.
+- `request.household = None` establishes a safe default so the attribute always exists.
+- The blank line separates default setup from conditional resolution.
+- `if request.user.is_authenticated:` checks the boolean-like authentication property attached by Django's AuthenticationMiddleware. The following block runs only for a logged-in user.
+- `try:` starts a narrow operation that may fail only because the user has no related profile.
+- `request.household = request.user.profile.household` follows the reverse one-to-one path from user to profile and then the foreign-key path from profile to household before storing the result on the request.
+- `except UserProfile.DoesNotExist:` catches only the expected missing-profile condition raised by `request.user.profile`.
+- `pass` intentionally leaves the earlier `None` default unchanged.
+- The final blank line separates household resolution from continuation of the request chain.
+- `return self.get_response(request)` passes the enriched request to the next middleware or view and returns its eventual HTTP response.
+
+After reviewing the created file, the learner will run this syntax check from the MoneyMatters project root with `.venv` active:
+
+```bash
+python -m py_compile accounts/middleware.py
+```
+
+- `python` uses the active project interpreter.
+- `-m py_compile` runs Python's built-in byte-compilation and syntax-check module.
+- `accounts/middleware.py` is the exact file to parse.
+
+Success normally produces no terminal output. The command may create ignored bytecode under `accounts/__pycache__/`, but it does not alter the normal database, install dependencies, or change Git history. A syntax or indentation problem produces a traceback with a filename and line number; paste it in full. Behaviour tests are required next even after this check passes.
+
+**Analogy:** AuthenticationMiddleware checks the person's badge. CurrentHouseholdMiddleware then uses the badge to find the staff member's assigned building and writes that building on the request clipboard. A visitor or an employee awaiting assignment receives a blank building field rather than crashing the front desk. Every department must still check the clipboard before showing records.
+
+### Teaching method correction: combine recap, analogy, seven steps, and line-by-line code explanation
+
+#### Learner request
+
+The learner asked: **“Can you update `TEACH.md` and the learning record so every lesson combines a recap, a clearly presented analogy, the seven teaching steps, and a line-by-line code explanation? Please recap the middleware lesson but do not implement it yet.”**
+
+The middleware analogy had been written at the bottom of the recorded Step 6A entry, but the conversational seven-step summary omitted it. That separation made the live explanation harder to understand. An analogy stored only in documentation does not satisfy the learner's teaching method; it must be presented, mapped to the real code, and connected to the technical explanation during the conversation.
+
+`docs/TEACH.md` was updated so every meaningful code block now follows this combined order:
+
+- recap verified previous work and connect the new block;
+- present a clearly labelled analogy directly in the conversation;
+- map the analogy to the real components and state the real technical path;
+- complete all seven required teaching steps;
+- preview the complete proposed code and explain every line before editing;
+- name the exact file, wait for the learner to open it, and apply only the approved change;
+- let the learner run the fully explained verification command;
+- record the evidence and the limits of the check.
+
+The seven required steps remain the core technical structure. Analogy and line-by-line explanation are integrated into those steps rather than treated as optional additions. The analogy supports understanding but never substitutes for precise architecture, business rules, security boundaries, failure analysis, or tests.
+
+#### Explicit Step 6A pause
+
+Step 6A has been designed and documented but is deliberately paused. No `accounts/middleware.py` file has been created, no custom middleware has been added to `config/settings.py`, and no middleware behaviour test has been implemented. The next action is a recap using the corrected combined teaching method. Implementation may begin only after the learner understands and approves that recap.
+
+## Retrospective learning map using the permanent teaching pattern
+
+This section brings every completed learning area under the same method without replacing the detailed chronological evidence above. Each retrospective contains a recap, a mapped analogy, the seven technical checks, and the most important code or commands explained from left to right. Future lessons must use this pattern before implementation rather than needing a retrospective correction.
+
+### Retrospective A: Clean restart, Git continuity, and project documents
+
+**Recap:** The earlier generated application was removed while Git history and the product requirements were preserved. The project was then rebuilt in small verified blocks. `TEACH.md` owns permanent project and teaching guidance, `LEARNING_GUIDE.md` owns chronological learning evidence, `PRD.md` owns product requirements, and `STATUS.md` owns changing progress.
+
+**Analogy:** Rebuilding the project was like renovating a house while keeping the deeds, architectural plans, and photographic history. Git is the recoverable history, the PRD is the architectural plan, TEACH is the working agreement, STATUS is the current job board, and this learning record is the site diary. The analogy stops at recovery mechanics: Git can recover committed files, but it does not automatically preserve ignored databases or uncommitted editor buffers.
+
+1. **Purpose:** Remove confusing generated code and rebuild a system the learner can explain.
+2. **Location:** Repository files hold code; the four documents divide stable rules, product requirements, changing status, and chronological evidence.
+3. **Path:** inspect repository -> preserve required history -> remove obsolete generated layers -> rebuild one block -> verify -> commit -> push or merge.
+4. **Rules:** Never discard user work silently; preserve relevant Git history; keep local databases and environments out of Git; do not confuse planned React architecture with already implemented folders.
+5. **Failures:** Deleting a workspace broadly, overwriting uncommitted work, treating ignored files as backed up, or allowing documentation roles to conflict.
+6. **Tests:** `git status`, diffs, relevant application checks, and remote branch verification prove different parts of the state; none alone proves the application is correct.
+7. **Modification and review:** Every change is scoped, shown, verified, intentionally committed, and published only when requested.
+
+Important Git vocabulary:
+
+- `git status -sb` reads the branch and concise working-tree state; it does not change files.
+- `git diff` shows unstaged changes, while `git diff --cached` shows staged changes.
+- `git add <paths>` selects changes for the next commit.
+- `git commit -m "message"` creates a local history checkpoint from staged content.
+- `git push` copies local commits to a remote branch; it does not automatically update `master` when pushing another branch.
+- A pull request proposes merging one branch into another. GitHub's main page showed older work until the feature branch was merged into `master`.
+
+### Retrospective B: Python, terminals, and the virtual environment
+
+**Recap:** Python 3.13.14 and pip 26.1.2 were verified. A project-specific `.venv` was created, and the learner used both PowerShell and Git Bash.
+
+**Analogy:** The computer's Python installation is a shared workshop, while `.venv` is a labelled toolbox reserved for MoneyMatters. PowerShell and Git Bash are different doorways into the workshop: they reach the same tools but use different instructions for opening the toolbox.
+
+1. **Purpose:** Isolate MoneyMatters dependencies from other Python projects.
+2. **Location:** `.venv` sits in the repository directory locally but is ignored by Git.
+3. **Path:** base Python -> create `.venv` -> activate for the current shell -> `python` resolves to the project interpreter -> commands import project packages.
+4. **Rules:** Activate the environment before lesson commands; do not commit `.venv`; recreate it from dependency records on another computer.
+5. **Failures:** Microsoft Store aliases, confusing `venv` with `.venv`, using PowerShell activation syntax in Git Bash, or running the global interpreter accidentally.
+6. **Tests:** `python --version`, `python -m pip --version`, and the displayed executable location prove interpreter selection; they do not prove Django settings load.
+7. **Modification and review:** Environment creation was performed once, then verified before dependencies were installed.
+
+Commands explained:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+- `py` selects the Windows Python launcher.
+- `-m venv` runs Python's built-in environment-creation module.
+- `.venv` is the directory being created.
+- `Activate.ps1` changes only the current PowerShell session's command resolution.
+
+Git Bash activates the same environment with:
+
+```bash
+source .venv/Scripts/activate
+```
+
+- `source` runs the activation script inside the current Bash session so its environment changes persist.
+- `.venv/Scripts/activate` is the Git Bash path to the Windows virtual environment's activation script.
+
+### Retrospective C: Django, Django REST Framework, Pillow, and requirements
+
+**Recap:** Django 5.2.16, Django REST Framework 3.16.1, and Pillow 12.3.0 were installed in `.venv`. Exact resolved dependencies were recorded in `requirements.txt`. React and TypeScript remain planned frontend technologies and have not been scaffolded yet.
+
+**Analogy:** Django is the building framework, Django REST Framework is the service counter for structured API requests, Pillow is the image-handling equipment, and `requirements.txt` is the parts manifest needed to reproduce the workshop.
+
+1. **Purpose:** Provide the backend framework, future API tools, and image support required by the profile avatar field.
+2. **Location:** Packages live in `.venv`; reproducible version records live in `requirements.txt`.
+3. **Path:** active interpreter -> pip reads requested constraints -> packages install into `.venv` -> Django imports them when project code requires them.
+4. **Rules:** Use compatible bounded versions when selecting dependencies; record resolved versions; never treat editor spelling warnings in `requirements.txt` as package errors.
+5. **Failures:** Installing globally, using a different interpreter's pip, omitting Pillow while using `ImageField`, or editing `pip freeze` output as prose.
+6. **Tests:** `pip show`, import/version commands, and `python manage.py check` verify different levels; package presence does not prove product behaviour.
+7. **Modification and review:** Dependencies were installed by learner-run terminal commands and verified before dependent model work continued.
+
+Key command structure:
+
+```bash
+python -m pip install "Django~=5.2.0" "djangorestframework~=3.16.0"
+```
+
+- `python -m pip` guarantees pip runs under the selected Python interpreter.
+- `install` requests package installation.
+- `~=` allows compatible maintenance releases within the selected release line.
+- Quotes keep the version expression together for the shell.
+
+### Retrospective D: Django project, accounts app, and app registration
+
+**Recap:** Django's `config` project and `accounts` app were created. `accounts.apps.AccountsConfig` was added to `INSTALLED_APPS`, allowing Django to discover the app's models, migrations, admin configuration, and tests.
+
+**Analogy:** The Django project is a shopping centre, an app is one specialised shop, `AccountsConfig` is the shop's registration certificate, and `INSTALLED_APPS` is the centre directory. A shop folder may physically exist without Django treating it as an active shop until it appears in the directory.
+
+1. **Purpose:** Give household and user-profile responsibilities their own Django app.
+2. **Location:** Global configuration belongs in `config`; accounts-domain code belongs in `accounts`.
+3. **Path:** `manage.py` loads settings -> Django reads `INSTALLED_APPS` -> imports `AccountsConfig` -> builds the app registry -> discovers models and related components.
+4. **Rules:** Use the dotted app-config path; keep domain code in its owning app; registration does not create database tables.
+5. **Failures:** Misspelling `apps.py`, using a wrong dotted path, assuming folder existence equals registration, or expecting registration to run migrations.
+6. **Tests:** `py_compile` proves settings syntax; `manage.py check` proves Django can load the configured app; neither creates schema.
+7. **Modification and review:** The exact settings file was opened, the app-config entry was added, and learner-run checks passed.
+
+Important dotted path:
+
+```python
+"accounts.apps.AccountsConfig"
+```
+
+- `accounts` identifies the Python package.
+- `apps` identifies `accounts/apps.py` without the `.py` suffix.
+- `AccountsConfig` identifies the class inside that module.
+
+### Retrospective E: Household and UserProfile models
+
+**Recap:** `Household` became the top-level financial-data owner. `UserProfile` links one Django user to one household, stores a descriptive financial label, and optionally references an avatar.
+
+**Analogy:** A household is a locked financial filing room. A user profile is a membership card connecting one person to that room and carrying their display label. The analogy stops at permissions: owning a membership card does not automatically make every API query secure; server-side filtering is still required.
+
+1. **Purpose:** Represent household ownership and user membership as persistent business data.
+2. **Location:** Both declarations belong in `accounts/models.py`, the accounts-domain persistence layer.
+3. **Path:** Python model declaration -> migration operations -> database tables -> ORM objects -> future serializers and views.
+4. **Rules:** Household defaults are GBP and fiscal month 1; one user has one profile; many profiles may belong to one household; the default descriptive role is SECONDARY; avatar is optional.
+5. **Failures:** Confusing descriptive labels with permission roles, choosing the wrong relationship type, unsafe delete behaviour, missing Pillow, or assuming field choices automatically enforce API permissions.
+6. **Tests:** Focused model tests protect defaults, readable text, role defaults, reverse names, and cascade behaviour; field-length, choice, permission, and API tests remain separate.
+7. **Modification and review:** Models were built in small reviewed blocks, then translated into a migration and tested.
+
+Key relationship lines:
+
+```python
+user = models.OneToOneField(
+    settings.AUTH_USER_MODEL,
+    on_delete=models.CASCADE,
+    related_name="profile",
+)
+```
+
+- `user` is the field stored on `UserProfile`.
+- `OneToOneField` permits at most one profile per user.
+- `settings.AUTH_USER_MODEL` respects Django's configured user model.
+- `on_delete=models.CASCADE` deletes the profile when its user is deleted.
+- `related_name="profile"` creates the reverse path `user.profile`.
+
+```python
+household = models.ForeignKey(
+    Household,
+    on_delete=models.CASCADE,
+    related_name="members",
+)
+```
+
+- `ForeignKey` allows several profiles to point to one household.
+- `Household` is the related model.
+- `CASCADE` removes dependent profiles when the household is deleted.
+- `members` creates the reverse query path `household.members`.
+
+### Retrospective F: Migrations, schema inspection, and safe repair
+
+**Recap:** `makemigrations` generated `accounts/migrations/0001_initial.py`. The retained local SQLite database already marked an older migration with the same name as applied, and its profile columns did not match the current source. The empty accounts tables were safely rebuilt while the existing auth user was preserved.
+
+**Analogy:** Models are an architect's design, migration files are numbered construction plans, the database is the actual building, and `django_migrations` is the completed-work ledger. The incident occurred because the ledger said plan 0001 was completed, but the source copy of plan 0001 had been replaced with a different design.
+
+1. **Purpose:** Make database structure reproducible and repair the mismatch without destroying unrelated data.
+2. **Location:** Migration history code lives in `accounts/migrations`; applied schema and the history table live in local `db.sqlite3`.
+3. **Path:** models -> `makemigrations` creates operations -> review -> `migrate` applies operations -> introspection checks actual tables and columns.
+4. **Rules:** Inspect before repairing; verify backups; proceed destructively only because accounts tables were empty; preserve the auth user; avoid manual SQL, `--fake`, and whole-database deletion.
+5. **Failures:** Treating `[X]` output as a command, assuming migration history proves physical schema, reusing a migration name for different operations, or deleting the entire database unnecessarily.
+6. **Tests:** `showmigrations` checks recorded history; introspection checks physical structure; row counts check preservation needs; hashes verify the backup; `manage.py check` verifies Django configuration afterward.
+7. **Modification and review:** The learner created the backup, then explicitly asked the AI to perform the narrowly scoped recovery. Evidence confirmed corrected columns and one preserved auth user.
+
+Command distinction:
+
+```bash
+python manage.py makemigrations accounts
+python manage.py migrate accounts
+```
+
+- `makemigrations` writes a source-controlled schema plan; it does not change database tables.
+- `migrate` executes known plans against the configured database and records them as applied.
+- `accounts` scopes each command to the app while Django still respects dependencies.
+
+### Retrospective G: Automated model tests
+
+**Recap:** Five accounts tests now pass together. They cover Household defaults, Household text representation, the UserProfile default role, reverse relationships, and household deletion cascading to the profile while preserving the user.
+
+**Analogy:** Models are a factory design and tests are reusable inspectors working in a temporary workshop. Each inspector places a controlled order, checks one promised result, and clears the workshop afterward. A passing inspector report covers only the rule it examined.
+
+1. **Purpose:** Protect meaningful business behaviour against accidental future changes.
+2. **Location:** Tests belong in `accounts/tests.py`, separate from production models.
+3. **Path:** Django test runner -> isolated test database -> arrange objects -> act -> assert expected result -> reset state -> destroy test database after the run.
+4. **Rules:** Tests must be independent; test names begin with `test_`; protect user, money, permission, data, security, and explicit requirement behaviour rather than every trivial line.
+5. **Failures:** Depending on normal database rows, confusing actual and expected values, checking only in-memory state after deletion, or assuming one passing test proves the whole app.
+6. **Tests:** A focused command gives fast evidence for one method; `python manage.py test accounts` verifies the app's complete current suite works together.
+7. **Modification and review:** Each test was explained, added after the file was opened, run by the learner, and recorded with explicit limits.
+
+Core test structure:
+
+```python
+class HouseholdModelTests(TestCase):
+    def test_default_values(self):
+        household = Household.objects.create(name="Smith Household")
+
+        self.assertEqual(household.base_currency, "GBP")
+```
+
+- `TestCase` provides isolated database behaviour and assertions.
+- `test_` makes the method discoverable.
+- `.objects.create(...)` arranges and saves the example.
+- `household.base_currency` is the actual value.
+- `"GBP"` is the expected value.
+- `assertEqual` fails when actual and expected differ.
+
+### Retrospective H: Django admin and local administrator access
+
+**Recap:** `Household` and `UserProfile` were registered in `accounts/admin.py`. Django's system check passed, the existing user was confirmed as staff and superuser, a forgotten local password was changed securely, and both models appeared after browser login.
+
+**Analogy:** The models are products in a warehouse and Django admin is the staff-only inventory desk. Registering models adds product catalogues to that desk; staff credentials control entry. This does not turn the desk into the customer-facing React application or enforce future API household isolation.
+
+1. **Purpose:** Provide authorised internal raw management of accounts records.
+2. **Location:** Registration belongs in `accounts/admin.py`; authentication data remains in Django's auth tables.
+3. **Path:** Django imports admin configuration -> models enter the admin registry -> staff requests `/admin/` -> session login -> generated model pages use the ORM.
+4. **Rules:** Only staff enter admin; use the existing account rather than creating duplicates; never paste passwords; admin is not a public product workflow.
+5. **Failures:** Using `code manage.py check` instead of executing Python, duplicate registration, forgotten credentials, ordinary users receiving staff access, or assuming admin registration creates API endpoints.
+6. **Tests:** `manage.py check` proves configuration loads; read-only user flags prove access eligibility; browser login proves the integrated local path; none proves production security.
+7. **Modification and review:** The two registration calls were added after explanation, learner-run checks passed, and the generated admin index was visually confirmed.
+
+Registration lines:
+
+```python
+admin.site.register(Household)
+admin.site.register(UserProfile)
+```
+
+- `admin` is Django's imported admin module.
+- `.site` is the default admin-site object.
+- `.register(...)` adds the supplied model class to its internal registry.
+
+### Retrospective I: Current household middleware design — paused
+
+**Recap:** The next block has been designed but not implemented. Its job is to derive `request.household` from the authenticated user's profile. The initial explanation was paused because the analogy was recorded but not delivered clearly in conversation.
+
+**Analogy:** A request is a clipboard moving through a secure office. The session cookie is a badge number, AuthenticationMiddleware identifies the person, CurrentHouseholdMiddleware checks the staff directory for the assigned building, and the view opens only that building's filing cabinet. A visitor or employee without an assignment receives a blank household field. The analogy stops before enforcement: the viewset must still filter the real queryset.
+
+1. **Purpose:** Give later views a predictable, server-derived household context.
+2. **Location:** The proposed class belongs in a new `accounts/middleware.py`; later activation belongs after AuthenticationMiddleware in `config/settings.py`.
+3. **Path:** session -> `request.user` -> `user.profile` -> `profile.household` -> `request.household` -> filtered queryset.
+4. **Rules:** Anonymous and profile-less users receive `None`; never trust a browser household ID; catch only the expected missing-profile condition; queryset filtering remains mandatory.
+5. **Failures:** Wrong middleware order, assuming every user has a profile, hiding all exceptions, leaving the attribute undefined, or forgetting view-level filtering.
+6. **Tests:** Future focused tests must cover a user with a profile, a user without a profile, an anonymous user, and continuation to the wrapped response.
+7. **Modification and review:** No middleware implementation is authorised yet. The learner must first approve the combined recap, analogy, seven steps, and line-by-line preview, then open the exact new file.
+
+Proposed code remains a preview only:
+
+```python
+from .models import UserProfile
+
+
+class CurrentHouseholdMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        request.household = None
+
+        if request.user.is_authenticated:
+            try:
+                request.household = request.user.profile.household
+            except UserProfile.DoesNotExist:
+                pass
+
+        return self.get_response(request)
+```
+
+The detailed line-by-line explanation remains in Step 6A above. As of this retrospective, `accounts/middleware.py` has not been created and `config/settings.py` has not been changed for custom middleware.
+
+### Permanent continuation rule
+
+For every future code block, the live lesson and chronological entry must contain the same combined structure: recap, visible mapped analogy, seven steps, full code preview, line-by-line explanation, explicit file opening and approval, AI-applied scoped edit, learner-run terminal verification, and a recorded statement of what the result proves and does not prove. If one part is missing or unclear, pause before implementation and repair the explanation first.
+
+**Learner-run middleware syntax check:** The learner ran `python -m py_compile accounts/middleware.py` from Git Bash with `.venv` active. Python returned to the prompt with no output, which means it parsed and byte-compiled the new middleware file without detecting a syntax or indentation error. This does not prove any request behaviour, response continuation, middleware ordering, settings registration, or household isolation.
+
+### Step 6B: Test household resolution for an authenticated user with a profile
+
+#### Recap and connection
+
+Step 6A created `CurrentHouseholdMiddleware` but did not activate it globally. Its syntax check passed. Before editing `config/settings.py`, test the successful branch directly: Django has identified a user, that user has a profile and household, and the middleware must place that exact household on the request before returning the next response.
+
+#### Analogy: test the clipboard at a practice security desk
+
+The middleware is a security desk that receives a clipboard. `RequestFactory` creates a realistic empty clipboard, the test writes the identified employee on it as `request.user`, and the employee's profile acts as the staff-directory entry. The middleware should write the assigned building on the clipboard. A small stand-in response represents the next department's completed paperwork. Receiving that same response proves the security desk forwarded the clipboard rather than stopping the workflow.
+
+The analogy stops at Django's real request chain: this direct test manually supplies `request.user` because AuthenticationMiddleware is not running. A later settings and integration check must prove the real middleware order.
+
+#### 1. Purpose
+
+Prove the primary successful behaviour: an authenticated user with a saved `UserProfile` receives the profile's household as `request.household`, and `CurrentHouseholdMiddleware` returns the response produced by its wrapped callable.
+
+#### 2. Location
+
+The test belongs in `accounts/tests.py` inside a new `CurrentHouseholdMiddlewareTests` class. The production middleware remains in `accounts/middleware.py`. Required framework and middleware imports belong at the top of the existing test file.
+
+#### 3. Important execution and data path
+
+The direct test path is `Django test runner -> isolated test database -> create user -> create household -> create UserProfile link -> RequestFactory creates GET request -> test attaches user -> middleware defaults request.household to None -> authenticated branch follows user.profile.household -> request.household becomes saved Household -> wrapped callable returns expected response -> assertions inspect household and returned object`.
+
+#### 4. Main business rules
+
+- The household must come from the authenticated user's saved profile.
+- The object assigned to `request.household` must be the expected `Household`, not a browser-supplied ID or a different household.
+- Middleware must continue the request chain and return the wrapped callable's response.
+- The test manually attaches the user only because it isolates this middleware from AuthenticationMiddleware.
+- The test must use an isolated database and must not depend on the local administrator or normal `db.sqlite3`.
+
+#### 5. Common failure cases
+
+- Forgetting to attach `request.user` makes the direct unit test unlike the eventual ordered middleware chain.
+- Creating a user without a profile takes the failure branch rather than the success branch being tested.
+- Asserting only that `request.household` is non-null could miss assignment of the wrong household.
+- Failing to call `self.get_response(request)` may set the household but prevent Django from producing a response.
+- Passing this direct test does not prove global settings registration or queryset filtering.
+
+#### 6. What the test should prove
+
+A pass proves that the middleware's authenticated-profile branch resolves the exact saved household and returns the exact response object produced by the next callable. It does not prove anonymous behaviour, profile-less behaviour, real AuthenticationMiddleware ordering, global activation, API permissions, or household-filtered querysets.
+
+#### 7. AI implementation and learner review
+
+After the learner opens `accounts/tests.py`, the AI will extend the imports and add this focused class:
+
+```python
+from django.http import HttpResponse
+from django.test import RequestFactory, TestCase
+
+from .middleware import CurrentHouseholdMiddleware
+from .models import Household, UserProfile
+
+
+class CurrentHouseholdMiddlewareTests(TestCase):
+    def test_sets_household_for_authenticated_user_with_profile(self):
+        user = get_user_model().objects.create_user(username="alex")
+        household = Household.objects.create(name="Smith Household")
+        UserProfile.objects.create(user=user, household=household)
+        request = RequestFactory().get("/")
+        request.user = user
+        expected_response = HttpResponse("ok")
+        middleware = CurrentHouseholdMiddleware(
+            lambda _request: expected_response
+        )
+
+        response = middleware(request)
+
+        self.assertEqual(request.household, household)
+        self.assertIs(response, expected_response)
+```
+
+The first existing import, `from django.contrib.auth import get_user_model`, remains unchanged.
+
+Line by line:
+
+- `from django.http import HttpResponse` imports Django's basic HTTP response class so the wrapped callable can return a real response object.
+- `from django.test import RequestFactory, TestCase` imports both the realistic request builder and the existing database-aware test base class.
+- `from .middleware import CurrentHouseholdMiddleware` imports the production class being tested from the current app.
+- `from .models import Household, UserProfile` remains the app's model import.
+- Two blank lines separate imports from a top-level class.
+- `class CurrentHouseholdMiddlewareTests(TestCase):` groups middleware tests and inherits Django's isolated database and assertion tools.
+- `def test_sets_household_for_authenticated_user_with_profile(self):` defines a discoverable focused test; the name states the expected condition and result.
+- `user = get_user_model().objects.create_user(username="alex")` creates and saves the authenticated test user.
+- `household = Household.objects.create(name="Smith Household")` creates and saves the expected household.
+- `UserProfile.objects.create(user=user, household=household)` creates the trusted server-side path between them. No variable is needed because later assertions inspect the request and household.
+- `request = RequestFactory().get("/")` creates a Django GET request for the root path without starting a server.
+- `request.user = user` performs the part AuthenticationMiddleware would normally perform before custom middleware runs.
+- `expected_response = HttpResponse("ok")` creates the exact response object the next callable should return.
+- `middleware = CurrentHouseholdMiddleware(` starts construction of the middleware under test.
+- `lambda _request: expected_response` is a small anonymous function standing in for the next middleware or view. `_request` receives the forwarded request but the underscore indicates this stand-in does not need to inspect it; it returns `expected_response`.
+- The closing `)` ends construction. Splitting the call across lines keeps the lambda readable.
+- The blank line separates Arrange from Act.
+- `response = middleware(request)` calls the middleware with the prepared request and stores the returned response.
+- The next blank line separates Act from Assert.
+- `self.assertEqual(request.household, household)` compares the actual household stamped on the request with the expected saved household.
+- `self.assertIs(response, expected_response)` proves identity rather than only equal content: the middleware returned the exact object produced by the wrapped callable.
+
+After reviewing the diff, the learner will run from the MoneyMatters root with `.venv` active:
+
+```bash
+python manage.py test accounts.tests.CurrentHouseholdMiddlewareTests.test_sets_household_for_authenticated_user_with_profile
+```
+
+- `python` uses the active project interpreter.
+- `manage.py test` starts Django's test runner.
+- The dotted path selects this one class and method.
+
+Django creates and destroys an isolated test database. The command does not change normal `db.sqlite3`, source code, dependencies, or Git history. Expected success output includes `Found 1 test(s)`, one dot, and `OK`. Paste any traceback in full.
+
+**Learner-run authenticated-profile middleware test:** The learner ran `python manage.py test accounts.tests.CurrentHouseholdMiddlewareTests.test_sets_household_for_authenticated_user_with_profile` and reported that it passed. This proves the middleware resolves the exact household through the saved `user.profile.household` path and returns the exact response produced by its wrapped callable in an isolated test database. It does not prove anonymous or profile-less behaviour, real middleware ordering, global activation, API permissions, or queryset filtering.
+
+### Step 6C: Test an authenticated user without a profile
+
+#### Recap and connection
+
+The successful middleware branch now passes. The next branch protects onboarding and Django admin: a person may be authenticated before a `UserProfile` exists. The middleware must leave `request.household` as `None` and continue the request instead of raising an exception.
+
+#### Analogy: an employee badge without a building assignment
+
+The request clipboard contains a valid employee badge, so the person is authenticated. The staff directory has no assignment card for that employee yet. The security desk leaves the “assigned building” box blank and forwards the clipboard to the next department. This keeps reception and onboarding open while signalling that household-owned records must not be shown.
+
+The analogy stops at authorisation: `None` is only a value on the real request object. Later API code must reject or return no household-owned records when that value is missing.
+
+#### 1. Purpose
+
+Prove that an authenticated user without a related `UserProfile` receives `request.household = None` and that the middleware still returns the wrapped callable's response.
+
+#### 2. Location
+
+The method belongs inside the existing `CurrentHouseholdMiddlewareTests` class in `accounts/tests.py`. It uses the imports already added by Step 6B, so no new import is required.
+
+#### 3. Important execution and data path
+
+The path is `test runner -> isolated database -> create Django user only -> RequestFactory creates GET request -> attach authenticated user -> middleware establishes None default -> request.user.is_authenticated is true -> request.user.profile raises UserProfile.DoesNotExist -> narrow except block keeps None -> wrapped callable returns expected response -> assertions inspect both outcomes`.
+
+#### 4. Main business rules
+
+- Authentication may exist before household onboarding is complete.
+- A missing profile must not crash the request chain.
+- Missing profile context must produce `None`, never a guessed or default household.
+- The middleware must still return the next response.
+- Later household-owned views must handle `None` securely rather than returning unscoped data.
+
+#### 5. Common failure cases
+
+- Assuming every authenticated user has `user.profile` would raise an exception and could break Django admin.
+- Automatically choosing the first household would create a severe cross-household data risk.
+- Catching unrelated exceptions would hide genuine bugs.
+- Checking only `request.household` would not prove the middleware continued to the response.
+- Passing this direct test would not prove settings order or viewset security.
+
+#### 6. What the test should prove
+
+A pass proves the precise missing-profile exception is handled, the safe default remains `None`, and the exact wrapped response is returned. It does not prove anonymous behaviour, global activation, real session authentication, permissions, or queryset filtering.
+
+#### 7. AI implementation and learner review
+
+After the learner opens `accounts/tests.py`, the AI will add only this method below the successful-path test:
+
+```python
+    def test_sets_none_for_authenticated_user_without_profile(self):
+        user = get_user_model().objects.create_user(username="alex")
+        request = RequestFactory().get("/")
+        request.user = user
+        expected_response = HttpResponse("ok")
+        middleware = CurrentHouseholdMiddleware(
+            lambda _request: expected_response
+        )
+
+        response = middleware(request)
+
+        self.assertIsNone(request.household)
+        self.assertIs(response, expected_response)
+```
+
+Line by line:
+
+- `def test_sets_none_for_authenticated_user_without_profile(self):` defines a discoverable method whose name states the input state and expected result.
+- `user = get_user_model().objects.create_user(username="alex")` creates and saves an authenticated-capable user but deliberately does not create `UserProfile`.
+- `request = RequestFactory().get("/")` creates a Django GET request without running a server.
+- `request.user = user` imitates the earlier AuthenticationMiddleware result.
+- `expected_response = HttpResponse("ok")` creates the exact response the stand-in next callable will return.
+- `middleware = CurrentHouseholdMiddleware(` begins construction of the production middleware under test.
+- `lambda _request: expected_response` receives the forwarded request and returns the prepared response; `_request` is intentionally unused by this simple stand-in.
+- The closing `)` completes construction.
+- The blank line separates Arrange from Act.
+- `response = middleware(request)` runs the middleware. Internally, the missing reverse profile triggers the narrow exception handler.
+- The next blank line separates Act from Assert.
+- `self.assertIsNone(request.household)` checks that the actual request value is the singleton `None` safe default.
+- `self.assertIs(response, expected_response)` checks that the exact response object continued through the chain.
+
+After reviewing the diff, the learner will run:
+
+```bash
+python manage.py test accounts.tests.CurrentHouseholdMiddlewareTests.test_sets_none_for_authenticated_user_without_profile
+```
+
+Run from the MoneyMatters project root with `.venv` active. Django creates and destroys an isolated test database. The command does not change normal data, source files, dependencies, or Git history. Expected success output includes `Found 1 test(s)`, one dot, and `OK`; paste any traceback in full.
+
+**Learner-run authenticated-without-profile middleware test:** The learner ran `python manage.py test accounts.tests.CurrentHouseholdMiddlewareTests.test_sets_none_for_authenticated_user_without_profile` and reported that it passed. This proves an authenticated user without a profile leaves `request.household` as `None`, the expected missing-profile condition is handled, and the exact wrapped response is returned. It does not prove anonymous behaviour, settings activation, real middleware ordering, permissions, or queryset filtering.
+
+### Step 6D: Test an anonymous request
+
+#### Recap and connection
+
+Two direct middleware branches now pass: a profiled user receives the correct household, and an authenticated user without a profile receives `None`. The final direct branch is an anonymous visitor. Because no user has logged in, the middleware must keep the safe `None` default without attempting a profile lookup and must still return the next response.
+
+#### Analogy: a visitor badge at the security desk
+
+The request clipboard identifies its holder as a visitor rather than an employee. The security desk does not search the employee assignment directory because the visitor has no authenticated staff identity. It leaves the building assignment blank and forwards the clipboard. This avoids both a crash and an invented assignment.
+
+The analogy stops at access control: `request.household = None` does not itself reject an anonymous API call. Django authentication and later view permissions must still prevent public access to protected financial endpoints.
+
+#### 1. Purpose
+
+Prove that an anonymous Django user receives `request.household = None`, does not enter the authenticated profile-lookup branch, and still receives the wrapped callable's response.
+
+#### 2. Location
+
+The method belongs inside `CurrentHouseholdMiddlewareTests` in `accounts/tests.py`. One new import, `AnonymousUser`, belongs with the existing Django authentication imports at the top of that file.
+
+#### 3. Important execution and data path
+
+The path is `test runner -> RequestFactory creates GET request -> attach AnonymousUser -> middleware establishes None default -> is_authenticated evaluates false -> profile lookup block is skipped -> wrapped callable returns expected response -> assertions inspect None and response identity`.
+
+#### 4. Main business rules
+
+- Anonymous requests receive no household context.
+- The middleware must not query a profile for an anonymous visitor.
+- It must never assign a default or first household.
+- It must continue the response chain.
+- Protected views must later require authentication and handle missing household context securely.
+
+#### 5. Common failure cases
+
+- Using `None` as `request.user` would not accurately model Django's real anonymous-user object.
+- Entering the profile branch for an anonymous user could cause invalid lookups or errors.
+- Assigning a shared default household would expose private data.
+- Treating the middleware's `None` value as complete access control would leave protected views unsafe.
+- Passing this direct test does not prove global middleware order.
+
+#### 6. What the test should prove
+
+A pass proves `AnonymousUser.is_authenticated` keeps the request household at `None` and the exact next response returns. It does not prove login requirements, session behaviour, global middleware activation, view permissions, or household queryset filtering.
+
+#### 7. AI implementation and learner review
+
+After the learner opens `accounts/tests.py`, the AI will add the authentication import and one method:
+
+```python
+from django.contrib.auth.models import AnonymousUser
+
+
+    def test_sets_none_for_anonymous_user(self):
+        request = RequestFactory().get("/")
+        request.user = AnonymousUser()
+        expected_response = HttpResponse("ok")
+        middleware = CurrentHouseholdMiddleware(
+            lambda _request: expected_response
+        )
+
+        response = middleware(request)
+
+        self.assertIsNone(request.household)
+        self.assertIs(response, expected_response)
+```
+
+The import will appear near the top of the real file; the method will appear inside `CurrentHouseholdMiddlewareTests`. They are shown together here only to preview both approved edits.
+
+Line by line:
+
+- `from django.contrib.auth.models import AnonymousUser` imports Django's real anonymous-user class rather than inventing a placeholder.
+- `def test_sets_none_for_anonymous_user(self):` defines a discoverable focused test and states the expected result.
+- `request = RequestFactory().get("/")` creates a Django GET request without a running server.
+- `request.user = AnonymousUser()` constructs and attaches the same kind of unauthenticated user object Django normally supplies.
+- `expected_response = HttpResponse("ok")` prepares the exact response expected from the next callable.
+- `middleware = CurrentHouseholdMiddleware(` starts construction of the production middleware.
+- `lambda _request: expected_response` stands in for the next callable and returns the prepared response.
+- The closing `)` completes construction.
+- The blank line separates Arrange from Act.
+- `response = middleware(request)` runs the middleware. The authentication condition is false, so no profile lookup occurs.
+- The next blank line separates Act from Assert.
+- `self.assertIsNone(request.household)` checks that the safe default remains the singleton `None`.
+- `self.assertIs(response, expected_response)` proves the exact wrapped response continued through the middleware.
+
+After reviewing the diff, the learner will run:
+
+```bash
+python manage.py test accounts.tests.CurrentHouseholdMiddlewareTests.test_sets_none_for_anonymous_user
+```
+
+Run from the project root with `.venv` active. Django creates and destroys an isolated test database even though this method creates no records. The command does not change normal data, source files, dependencies, or Git history. Expected success output includes one test and `OK`; paste any traceback in full.
+
+### How do we know what to import, which topic a pattern belongs to, and why middleware uses requests and responses?
+
+The learner asked how developers know which models or Django objects to import, whether middleware is specifically for APIs, how code involving `get()` and responses is arranged, and whether those ideas belong to Python or Django.
+
+There is no useful single flat list of imports to memorise. Start with the name used by the code, identify who owns it, then locate its definition or official documentation:
+
+- Project-owned names such as `Household`, `UserProfile`, and `CurrentHouseholdMiddleware` are found in the repository and imported from their defining modules.
+- Django-owned names such as `RequestFactory`, `HttpResponse`, and `AnonymousUser` are found through Django's official documentation, editor navigation, or installed source.
+- The leading dot in `from .models import Household` means the module is inside the current Python package.
+
+The current middleware test combines several source topics:
+
+- **Python:** `def`, class instances, variable assignment, `lambda`, `__init__`, `__call__`, attributes, and return values.
+- **HTTP/web:** GET requests, URL paths, requests, responses, and status behaviour.
+- **Django:** middleware, `HttpResponse`, authentication objects, `RequestFactory`, `TestCase`, and the ORM.
+- **Testing:** Arrange-Act-Assert, controlled inputs, expected outputs, assertion equality, identity, and test limits.
+- **Django REST Framework:** not used by this direct middleware test yet; later viewsets and permissions will consume `request.household` for API isolation.
+
+Middleware is part of Django's global request/response processing, so once activated it can run for admin pages, ordinary Django pages, authentication routes, and DRF API endpoints. MoneyMatters primarily needs this custom middleware to prepare trusted household context for later APIs, but the middleware itself does not create an API or enforce queryset filtering.
+
+`RequestFactory().get("/")` constructs an in-memory Django request representing the HTTP operation `GET /`; it does not start a server. This `.get()` is different from `Household.objects.get(...)`, which performs a database query. The object to the left determines the method's meaning.
+
+`RequestFactory` deliberately does not execute middleware, so a direct test manually supplies `request.user`. `AnonymousUser()` accurately represents Django's unauthenticated user object. `HttpResponse("ok")` supplies a real known response, while `lambda _request: expected_response` is a small Python callable standing in for the next middleware or view. It is equivalent to a named function that accepts a request and returns the prepared response.
+
+Official deeper-study references for the installed Django 5.2 line:
+
+- **Learn now:** [Django middleware and the `get_response` contract](https://docs.djangoproject.com/en/5.2/topics/http/middleware/).
+- **Learn now:** [Django `RequestFactory` and direct request testing](https://docs.djangoproject.com/en/5.2/topics/testing/advanced/).
+- **Explore soon:** [Django request and response objects](https://docs.djangoproject.com/en/5.2/ref/request-response/).
+- **Later reference:** HTTP methods and protocol details beyond the GET/response concepts required by the current test.
+
+The learner's final question ended with “and can,” so that incomplete portion remains open for clarification. The anonymous-user test remains documented but unimplemented.
+
+### Publish-check recovery: middleware file overwritten by an empty editor buffer
+
+During the requested GitHub publish workflow, the complete accounts suite failed while importing `CurrentHouseholdMiddleware`. Read-only inspection showed that `accounts/middleware.py` existed but had zero bytes, even though its earlier focused syntax and behaviour checks had passed. This matched the previous pattern where a file created externally while an older empty VS Code buffer was open was later overwritten by that buffer.
+
+The AI stopped before staging, committing, or pushing. After the learner opened the exact file, the AI restored only the previously approved 17-line middleware class. No anonymous-user test or settings registration was added.
+
+The publish validation was then repeated with the project virtual-environment interpreter:
+
+- `python manage.py test accounts` found seven tests and all seven passed.
+- `python manage.py check` reported no issues.
+- `python -m py_compile accounts/middleware.py` passed with no output.
+- `git diff --check` passed; line-ending notices were warnings rather than whitespace errors.
+
+An unrelated zero-byte file named `check`, created earlier when `code manage.py check` treated `check` as a filename, was inspected and deliberately excluded from the publish scope. It was not deleted silently. The intended checkpoint remains the admin registration, five model tests, middleware class, two passing middleware tests, status, and teaching/learning documentation.
