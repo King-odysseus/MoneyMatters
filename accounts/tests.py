@@ -34,6 +34,8 @@ class UserProfileModelTests(TestCase):
 
         self.assertEqual(user.profile, profile)
         self.assertEqual(household.members.get(), profile)
+        
+        
 
     def test_deleting_household_deletes_profile_but_preserves_user(self):
         user = get_user_model().objects.create_user(username="alex")
